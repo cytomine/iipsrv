@@ -1,0 +1,117 @@
+<html xmlns="http://www.w3.org/1999/xhtml"> 
+  <head> 
+    <title>OpenLayers Zoomify IIPImage</title> 
+    <script src="http://oldmapsonline.googlecode.com/svn/trunk/openlayers/OpenLayers.js"></script> 
+    <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>  
+    <script>
+     function GetQueryStringParams(sParam) {
+       var sPageURL = window.location.search.substring(1);
+       var sURLVariables = sPageURL.split('&');
+       for (var i = 0; i < sURLVariables.length; i++) {
+           var sParameterName = sURLVariables[i].split('=');
+           if (sParameterName[0] == sParam) {
+               return sParameterName[1];
+           }
+       }
+   }</script>
+
+
+    <script type="text/javascript"> 
+ 	/*   Image Width: 29899 Image Length: 28155*/
+//  Image Width: 23024 Image Length: 18080
+
+	var zoomify_width = GetQueryStringParams('width');
+	var zoomify_height = GetQueryStringParams('height');
+	var name_image = GetQueryStringParams('name');
+	/*var zoomify_url = "/fcgi-bin/iipsrv.fcgi?zoomify=/home/maree/CYTOMINE/WholeSlides/PhDelvenne/o.tif/";*/
+	var zoomify_url = "http://localhost:8081/fcgi-bin/iipsrv.fcgi?zoomify=/"+name_image+"/";
+ 
+        var map, zoomify;
+ 
+        function init(){
+	       /* First we initialize the zoomify pyramid (to get number of tiers) */
+	        var zoomify = new OpenLayers.Layer.Zoomify( "Zoomify", zoomify_url, 
+		  		new OpenLayers.Size( zoomify_width, zoomify_height ) );
+ 		 zoomify.getURL = function (bounds) {
+        bounds = this.adjustBounds(bounds);
+        var res = this.map.getResolution();
+        var x = Math.round((bounds.left - this.tileOrigin.lon) / (res * this.tileSize.w));
+        var y = Math.round((this.tileOrigin.lat - bounds.top) / (res * this.tileSize.h));
+        var z = this.map.getZoom();
+
+        var tileIndex = x + y * this.tierSizeInTiles[z].w + this.tileCountUpToTier[z];
+        var path = "TileGroup" + Math.floor( (tileIndex) / 256 ) +
+            "/" + z + "-" + x + "-" + y + ".jpg";
+        var url = this.url;
+	return url + path + "?date="+(new Date()).getTime();
+    };
+		zoomify.getImageSize = function () {
+                if (arguments.length > 0) {
+                    bounds = this.adjustBounds(arguments[0]);
+                    var z = this.map.getZoom();
+                    var res = this.map.getResolution();
+                    var x = Math.round((bounds.left - this.tileOrigin.lon) / (res * this.tileSize.w));
+                    var y = Math.round((this.tileOrigin.lat - bounds.top) / (res * this.tileSize.h));
+                    //check if tiles exist on server at this zoom level, if not return
+                    if (this.tierImageSize[z] == undefined) {
+                        return null;
+                    }
+                    var w = this.standardTileSize;
+                    var h = this.standardTileSize;
+                    if (x == this.tierSizeInTiles[z].w - 1) {
+                        w = this.tierImageSize[z].w % this.standardTileSize;
+                        if (w == 0) {
+                            w = this.standardTileSize;
+                        }
+                    }
+                    if (y == this.tierSizeInTiles[z].h - 1) {
+                        h = this.tierImageSize[z].h % this.standardTileSize;
+                        if (h == 0) {
+                            h = this.standardTileSize;
+                        }
+                    }
+                    return (new OpenLayers.Size(w, h));
+                } else {
+                    return this.tileSize;
+                }
+            };
+	       /* Map with raster coordinates (pixels) from Zoomify image */
+	        var options = {
+	            controls: [],
+	            maxExtent: new OpenLayers.Bounds(0, 0, zoomify_width, zoomify_height),
+	            maxResolution: Math.pow(2, zoomify.numberOfTiers-1 ),
+	            numZoomLevels: zoomify.numberOfTiers,
+	            units: 'pixels'
+	        };
+ 
+	        map = new OpenLayers.Map("map", options);
+ 
+                vlayer = new OpenLayers.Layer.Vector( "Editable" );
+ 
+                map.addLayers([zoomify, vlayer]);
+ 
+	        map.addControl(new OpenLayers.Control.MousePosition());
+	        map.addControl(new OpenLayers.Control.PanZoomBar());
+	        map.addControl(new OpenLayers.Control.MouseDefaults());
+	        map.addControl(new OpenLayers.Control.KeyboardDefaults());
+                map.addControl(new OpenLayers.Control.EditingToolbar(vlayer));
+                // map.addControl(new OpenLayers.Control.OverviewMap());
+ 
+                map.setBaseLayer(zoomify);
+	        map.zoomToMaxExtent();
+ 
+        };
+    </script> 
+  </head> 
+  <body onload="init()"> 
+      <h1 id="title">OpenLayers Zoomify IIPImage Example</h1> 
+ 
+    <div id="tags"></div> 
+ 
+    <p id="shortdesc"> 
+        Demo of a layer with Zoomify tiles.
+    </p> 
+ 
+    <div id="map" class="smallmap" style="width:1500px;height:800px;border: 1px solid gray;"></div> 
+  </body> 
+</html> 
