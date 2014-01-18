@@ -26,7 +26,7 @@
  */
 #define VERBOSITY 1
 #define LOGFILE "/tmp/iipsrv.log"
-#define MAX_IMAGE_CACHE_SIZE 10.0
+#define MAX_IMAGE_CACHE_SIZE 0.0
 #define FILENAME_PATTERN "_pyr_"
 #define JPEG_QUALITY 75
 #define MAX_CVT 5000

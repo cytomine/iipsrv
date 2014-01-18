@@ -24,6 +24,7 @@
 #include "URL.h"
 #include "Environment.h"
 #include "TPTImage.h"
+#include "OpenSlideImage.h"
 
 #ifdef HAVE_KAKADU
 #include "KakaduImage.h"
@@ -38,6 +39,17 @@
 
 
 using namespace std;
+
+
+
+// Internal utility function to decode hex values
+static char hexToChar( char first, char second ){
+  int digit;
+  digit = (first >= 'A' ? ((first & 0xDF) - 'A') + 10 : (first - '0'));
+  digit *= 16;
+  digit += (second >= 'A' ? ((second & 0xDF) - 'A') + 10 : (second - '0'));
+  return static_cast<char>(digit);
+}
 
 
 
@@ -123,6 +135,14 @@ void FIF::run( Session* session, const string& src ){
     if( format == TIF ){
       if( session->loglevel >= 2 ) *(session->logfile) << "FIF :: TIFF image detected" << endl;
       *session->image = new TPTImage( test );
+    }
+#pragma mark Adding in basic openslide functionality
+    else if (imtype=="svs" || imtype=="ndpi" || imtype=="mrxs" || imtype=="vms" || imtype=="scn" || imtype=="bif") {
+
+      if( session->loglevel >= 2 ) *(session->logfile) << "FIF :: OpenSlide image requested" << endl;
+
+      *session->image = new OpenSlideImage( test );
+
     }
 #if defined(HAVE_KAKADU) || defined(HAVE_OPENJPEG)
     else if( format == JPEG2000 ){
