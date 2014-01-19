@@ -6,7 +6,7 @@
 #include <sstream>
 
 #include <sstream>
-#define DEBUG 1
+//#define DEBUG
 using namespace std;
 
 #ifdef DEBUG
@@ -43,13 +43,12 @@ void OpenSlideImage::openImage() throw (std::string) {
     logfile << "OpenSlide :: openImage() :: " << timer.getTime() << " microseconds" << endl;
 #endif
 	
-	
+	isSet = true;
 	
 }
 
 void OpenSlideImage::loadImageInfo(int x, int y) throw (std::string) {
-	printf("OpenSlideImage :: loadImageInfo()\n");
-	fflush(stdout);	
+
 #ifdef DEBUG
     logfile << "OpenSlideImage :: loadImageInfo()" << endl; 
 #endif  
@@ -65,6 +64,7 @@ void OpenSlideImage::loadImageInfo(int x, int y) throw (std::string) {
 
     channels = 3; // how to get it from openslide?
     bpp = 8;
+	colourspace = sRGB;	
 
     // const char* comment = openslide_get_comment(osr);
 
@@ -160,7 +160,6 @@ void OpenSlideImage::loadImageInfo(int x, int y) throw (std::string) {
     //        associated_image_names++;
     //    }
 
-    colourspace = sRGB;	
 }
 
 /// Overloaded function for closing a TIFF image
@@ -189,9 +188,6 @@ void OpenSlideImage::closeImage() {
  */
 RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, unsigned int tile) throw (string) {
 
-	printf("OpenSlideImage :: getTile");
-	fflush(stdout);	
-
     Timer timer;
     timer.start();
 
@@ -199,18 +195,8 @@ RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, 
         ostringstream tile_no;
         tile_no << "OpenSlide :: Asked for non-existant resolution: " << res;
         throw tile_no.str();
+		return 0;
     }
-	
-	printf("OpenSlideImage :: getTile");
-	
-	std::cout << std::endl << "numResolutions" << numResolutions <<  std::endl; 
-	std::cout << "res" <<  std::endl; 
-	std::cout << "numResolutions - 1 - res " << (numResolutions - 1 - res) <<  std::endl; 		
-	std::cout << "image_widths.size() " << image_widths.size() <<  std::endl; 
-	std::cout << "image_heights.size() " << image_heights.size() <<  std::endl; 
-	std::cout << "image_widths[numResolutions - 1 - res]" << image_widths[numResolutions - 1 - res] << std::endl;
-	std::cout << "image_heights[numResolutions - 1 - res]" << image_heights[numResolutions - 1 - res] << std::endl;	
-	fflush(stdout);	
 
     int64_t layer_width = image_widths[numResolutions - 1 - res];
     int64_t layer_height = image_heights[numResolutions - 1 - res];
@@ -267,8 +253,8 @@ RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, 
     rawtile.dataLength = tw * th* channels;
     rawtile.filename = getImagePath();
     rawtile.timestamp = timestamp;
-    /*rawtile.memoryManaged = 0;
-    rawtile.padded = true;*/
+    rawtile.memoryManaged = 0;
+    rawtile.padded = false;
 
     char* dest =  (char*) malloc(tw * th * channels * sizeof(char));
     if (!dest) throw string("FATAL : getTile >> allocation memory ERROR");
@@ -396,68 +382,12 @@ void OpenSlideImage::readProperties(openslide_t *osr) {
         const char *value = openslide_get_property_value(osr, name);
         metadata[name] = value;
 #ifdef DEBUG
-        /*std::cout << "property: " <<  name << " -> " << value << std::endl;*/
+        std::cout << "property: " <<  name << " -> " << value << std::endl;
 #endif
         property_names++;
     }
 
 }
 
-RawTile OpenSlideImage::readAssociatedImages(const char* image_name) {
-    std::cout << "readAssociatedImages " << image_name << std::endl << std::flush;
-    //const char * const *associated_image_names = openslide_get_associated_image_names(osr);
-    //unsigned int i = 0;
-    /* while (*associated_image_names) {*/
-    int64_t w;
-    int64_t h;
-    //        const char *name = *associated_image_names;
-
-    /*if (strcmp(name, image_name) == 0) {*/
-    openslide_get_associated_image_dimensions(osr, image_name, &w, &h);
-    std::cout << "readAssociatedImages w,h" << w << "," << h << std::endl << std::flush;
-    uint32_t* data = (uint32_t*) malloc(w * h * 4);
-
-
-    RawTile rawtile(0, 0, 0, 0, w, h, channels, bpp);
-
-    // Create our raw tile buffer and initialize some values
-    rawtile.data = NULL;
-    rawtile.dataLength = w * h* channels;
-    rawtile.filename = "youyou.jpg";
-    rawtile.timestamp = timestamp;
-    //    rawtile.memoryManaged = 0;
-    //rawtile.padded = true;
-
-
-    char* dest = (char *) malloc(w * h * channels);
-    for (int i = 0; i < w * h * channels; i++) dest[i] = 0;
-    /*openslide_read_associated_image(osr, image_name, data);
-    unsigned char *temp1 = reinterpret_cast<unsigned char*> (dest);
-    unsigned char *temp2 = reinterpret_cast<unsigned char*> (data);
-    for (int i = 0; i < h; i++) {
-        for (int j = 0; j < w; j++) {
-            // memory copy
-            memcpy(temp1 + 0, temp2 + 2, 1);
-            memcpy(temp1 + 1, temp2 + 1, 1);
-            memcpy(temp1 + 2, temp2 + 0, 1);
-            // imageData jump to next line
-            temp1 = temp1 + channels;
-            // buffer jump to next line
-            temp2 = temp2 + 4;
-        }
-
-    }*/
-    free(data);
-    rawtile.data = dest;
-
-    return ( rawtile);
-
-    //}
-
-    /*    associated_image_names++;
-
-    }*/
-
-}
 
 

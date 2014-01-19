@@ -40,7 +40,6 @@ RawTile TileManager::getNewTile( int resolution, int tile, int xangle, int yangl
 
   RawTile ttt;
 
-  std::cout << "getNewTile res : " << resolution;
   // Get our raw tile from the IIPImage image object
   ttt = image->getTile( xangle, yangle, resolution, layers, tile );
 

@@ -18,6 +18,7 @@
 #include <iostream>
 #include <fstream>
 
+
 extern "C" {
 #include "openslide.h"
 #include "openslide-features.h"
@@ -31,7 +32,11 @@ extern "C" {
 class OpenSlideImage : public IIPImage {
 private:
     openslide_t* osr; //the openslide reader
-    
+    /// Tile data buffer pointer
+ 
+    uint32_t *osr_buf;
+    // tdata_t tile_buf;    
+ 
     void downsample_region(openslide_t *osr, uint32_t *buf, int64_t x, int64_t y, int32_t z, int64_t w, int64_t h);
 public:
     /// Constructor
@@ -80,7 +85,6 @@ public:
         \param y vertical sequence angle
      */
     void loadImageInfo(int x, int y) throw (std::string);
-void _loadImageInfo(int x, int y) throw (std::string);	
 
     /// Overloaded function for closing a TIFF image
     void closeImage();
@@ -110,7 +114,6 @@ void _loadImageInfo(int x, int y) throw (std::string);
     void read(double zoom, long w, long h, long x, long y, char* data);	
 
     void readProperties(openslide_t* osr);
-    RawTile readAssociatedImages(const char* image_name);
 };
 
 #endif	/* OPENSLIDEIMAGE_H */
