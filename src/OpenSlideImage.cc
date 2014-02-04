@@ -170,9 +170,11 @@ void OpenSlideImage::closeImage() {
     timer.start();
 #endif
 
-    //openslide_close(osr);
-
-    osr = NULL;
+    if (osr != NULL) {
+        openslide_close(osr);
+        osr = NULL;
+    }
+        
 #ifdef DEBUG
     logfile << "OpenSlide :: closeImage() :: " << timer.getTime() << " microseconds" << endl;
 #endif
