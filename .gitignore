@@ -1,3 +1,13 @@
+compile
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+autom4te.cache
+*.m4
+*.Po
 *.[oa]
 *.fcgi
 *~
