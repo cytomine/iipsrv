@@ -34,6 +34,7 @@ IIPResponse::IIPResponse(){
   server = "Server: iipsrv/" + string(VERSION);
   powered = "X-Powered-By: IIPImage";
   modified = "";
+  cache = "Cache-Control: max-age=86400"; //TODO
   mimeType = "Content-Type: application/vnd.netfpx";
   cors = "";
   eof = "\r\n";
@@ -122,7 +123,7 @@ string IIPResponse::getAdvert(){
   advert += "Content-Disposition: inline;filename=\"iipsrv.html\"" + eof + eof;
   advert += "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"/><title>IIPImage Server</title><meta name=\"DC.creator\" content=\"Ruven Pillay &lt;ruven@users.sourceforge.net&gt;\"/><meta name=\"DC.title\" content=\"IIPImage Server\"/><meta name=\"DC.source\" content=\"http://iipimage.sourceforge.net\"/></head><body style=\"font-family:Helvetica,sans-serif; margin:4em\"><center><h1>IIPImage Server</h1><h2>Version "
     + string( VERSION ) +
-    "</h2><br/><h3>Project Home Page: <a href=\"http://iipimage.sourceforge.net\">http://iipimage.sourceforge.net</a></h3><br/><h4>by<br/>Ruven Pillay</h4></center></body></html>";
+    " (with OpenSlide)</h2><br/><h3>Project Home Page: <a href=\"http://iipimage.sourceforge.net\">http://iipimage.sourceforge.net</a></h3><br/><h4>by<br/>Ruven Pillay</h4></center></body></html>";
 
   return advert;
 
