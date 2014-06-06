@@ -255,8 +255,8 @@ RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, 
     rawtile.dataLength = tw * th* channels;
     rawtile.filename = getImagePath();
     rawtile.timestamp = timestamp;
-    rawtile.memoryManaged = 0;
-    rawtile.padded = false;
+    //rawtile.memoryManaged = 0;
+    //rawtile.padded = false;
 
     char* dest =  (char*) malloc(tw * th * channels * sizeof(char));
     if (!dest) throw string("FATAL : getTile >> allocation memory ERROR");
