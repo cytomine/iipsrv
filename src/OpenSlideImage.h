@@ -111,7 +111,7 @@ public:
         \param b buffer to fill
      */
     //void getRegion(int ha, int va, unsigned int r, int l, int x, int y, unsigned int w, unsigned int h, unsigned char* b) throw (std::string);
-    void read(double zoom, long w, long h, long x, long y, char* data);	
+    void read(double zoom, long w, long h, long x, long y, void* data);	
 
     void readProperties(openslide_t* osr);
 };

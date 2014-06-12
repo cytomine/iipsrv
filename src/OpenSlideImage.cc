@@ -6,7 +6,7 @@
 #include <sstream>
 
 #include <sstream>
-//#define DEBUG
+#define DEBUG
 using namespace std;
 
 #ifdef DEBUG
@@ -123,13 +123,13 @@ void OpenSlideImage::loadImageInfo(int x, int y) throw (std::string) {
     min.clear();
     max.clear();
     for( int i=0; i<channels; i++ ){
-      if( (float)smaxvalue[i] == 0.0 ){
+      //if( (float)smaxvalue[i] == 0.0 ){
         sminvalue[i] = 0.0;
         // Set default values if values not included in header
         if( bpp == 8 ) smaxvalue[i] = 255.0;
         else if( bpp == 16 ) smaxvalue[i] = 65535.0;
-        else if( bpp == 32 && sampleType == FIXEDPOINT ) smaxvalue[i] = 4294967295.0;
-      }
+        else if( bpp == 32 && sampleType == FIXEDPOINT) smaxvalue[i] = 4294967295.0;
+      //}
       min.push_back( (float)sminvalue[i] );
       max.push_back( (float)smaxvalue[i] );
     }
@@ -229,8 +229,7 @@ RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, 
 
     double openslide_zoom = this->numResolutions - 1 - res;
 
-    int pos_factor = pow(2, openslide_zoom); 
-
+    int pos_factor = pow(2, openslide_zoom);
 
    
 
@@ -251,17 +250,20 @@ RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, 
     RawTile rawtile(tile, res, seq, ang, tw, th, channels, bpp);
 
     // Create our raw tile buffer and initialize some values
-    rawtile.data = NULL;
+    //rawtile.data = NULL;
     rawtile.dataLength = tw * th* channels;
     rawtile.filename = getImagePath();
     rawtile.timestamp = timestamp;
+    rawtile.data = new unsigned char[tw*th*channels];
     //rawtile.memoryManaged = 0;
     //rawtile.padded = false;
-
-    char* dest =  (char*) malloc(tw * th * channels * sizeof(char));
-    if (!dest) throw string("FATAL : getTile >> allocation memory ERROR");
-    read(openslide_zoom, tw, th, (long) xoffset * pos_factor, (long) yoffset * pos_factor, dest);
-    rawtile.data = dest;
+#ifdef DEBUG
+    logfile << "Allocating tw * th * channels * sizeof(char) : " << tw << " * " << th << " * " << channels << " * sizeof(char) " << endl << flush;
+#endif
+    //char* dest =  (char*) malloc(tw * th * channels * sizeof(char));
+    //if (!dest) throw string("FATAL : getTile >> allocation memory ERROR");
+    read(openslide_zoom, tw, th, (long) xoffset * pos_factor, (long) yoffset * pos_factor, rawtile.data);
+    //rawtile.data = dest;
 
 
 #ifdef DEBUG
@@ -277,7 +279,7 @@ RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, 
 
 }
 
-void OpenSlideImage::read(double zoom, long w, long h, long x, long y, char* dest) {
+void OpenSlideImage::read(double zoom, long w, long h, long x, long y, void* dest) {
 	
 #ifdef DEBUG
     logfile << "OpenSlide READ zoom, w, h, x, y :" << zoom  << "," << w << "," << h << "," << x << "," << y << std::endl;
@@ -384,7 +386,7 @@ void OpenSlideImage::readProperties(openslide_t *osr) {
         const char *value = openslide_get_property_value(osr, name);
         metadata[name] = value;
 #ifdef DEBUG
-        std::cout << "property: " <<  name << " -> " << value << std::endl;
+        //logfile << "property: " <<  name << " -> " << value << std::endl;
 #endif
         property_names++;
     }
