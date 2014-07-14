@@ -35,7 +35,6 @@ void OpenSlideImage::openImage() throw (std::string) {
     if (osr == NULL) throw string("Error opening '" + filename + "' with OpenSlide");
 	if (bpp == 0) {
 		loadImageInfo(currentX, currentY);
-		readProperties(osr);
 	}
     //readAssociatedImages("label");
 
@@ -255,7 +254,7 @@ void OpenSlideImage::read(double zoom, long w, long h, long x, long y, void* des
 #ifdef DEBUG
     logfile << "OpenSlide READ zoom, w, h, x, y :" << zoom  << "," << w << "," << h << "," << x << "," << y << std::endl;
 #endif
-    uint32_t* buffer = (uint32_t*) malloc(w * h * 4);
+    uint32_t* buffer =  new uint32_t*[w * h * 4];
     if (!buffer) throw string("FATAL : OpenSlideImage READ => allocation memory ERROR");
     //openslide_read_region(osr, buffer, (int64_t) x, (int64_t) y, zoom, (int64_t) w, (int64_t) h);
 
@@ -280,7 +279,7 @@ void OpenSlideImage::read(double zoom, long w, long h, long x, long y, void* des
 #ifdef DEBUG
     logfile << "FREE BUFFER..." << std::endl;
 #endif
-    free(buffer);
+    delete(buffer);
 #ifdef DEBUG
     logfile << "DONE..." << std::endl;
 #endif
@@ -348,21 +347,6 @@ void OpenSlideImage::downsample_region(openslide_t *osr, uint32_t *buf, int64_t 
 
 }
 
-void OpenSlideImage::readProperties(openslide_t *osr) {
-    // read properties
-
-    const char * const *property_names = openslide_get_property_names(osr);
-    while (*property_names) {
-        const char *name = *property_names;
-        const char *value = openslide_get_property_value(osr, name);
-        metadata[name] = value;
-#ifdef DEBUG
-        //logfile << "property: " <<  name << " -> " << value << std::endl;
-#endif
-        property_names++;
-    }
-
-}
 
 
 
