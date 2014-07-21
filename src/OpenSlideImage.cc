@@ -127,7 +127,7 @@ void OpenSlideImage::loadImageInfo(int x, int y) throw (std::string) {
         // Set default values if values not included in header
         if( bpp == 8 ) smaxvalue[i] = 255.0;
         else if( bpp == 16 ) smaxvalue[i] = 65535.0;
-        else if( bpp == 32 && sampleType == FIXEDPOINT) smaxvalue[i] = 4294967295.0;
+        else if( bpp == 32 ) smaxvalue[i] = 4294967295.0;
       //}
       min.push_back( (float)sminvalue[i] );
       max.push_back( (float)smaxvalue[i] );
@@ -254,7 +254,7 @@ void OpenSlideImage::read(double zoom, long w, long h, long x, long y, void* des
 #ifdef DEBUG
     logfile << "OpenSlide READ zoom, w, h, x, y :" << zoom  << "," << w << "," << h << "," << x << "," << y << std::endl;
 #endif
-    uint32_t* buffer =  new uint32_t*[w * h * 4];
+    uint32_t* buffer =  new uint32_t[w * h * 4];
     if (!buffer) throw string("FATAL : OpenSlideImage READ => allocation memory ERROR");
     //openslide_read_region(osr, buffer, (int64_t) x, (int64_t) y, zoom, (int64_t) w, (int64_t) h);
 
