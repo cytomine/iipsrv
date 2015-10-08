@@ -32,6 +32,14 @@ void OpenSlideImage::openImage() throw (std::string) {
 
     osr = openslide_open(filename.c_str());
 
+#ifdef DEBUG
+    const char* test = openslide_get_error(osr);
+    if(test!=NULL) {
+        logfile << "OpenSlideImage :: osr errors "<< test << " " << endl;
+    }
+#endif
+
+
     if (osr == NULL) throw string("Error opening '" + filename + "' with OpenSlide");
 	if (bpp == 0) {
 		loadImageInfo(currentX, currentY);

@@ -137,7 +137,7 @@ void FIF::run( Session* session, const string& src ){
       *session->image = new TPTImage( test );
     }
 #pragma mark Adding in basic openslide functionality
-    else if (imtype=="svs" || imtype=="ndpi" || imtype=="mrxs" || imtype=="vms" || imtype=="scn" || imtype=="bif") {
+    else if (imtype=="svs" || imtype=="ndpi" || imtype=="mrxs" || imtype=="vms" || imtype=="scn" || imtype=="vtif" || imtype=="bif") {
 
       if( session->loglevel >= 2 ) *(session->logfile) << "FIF :: OpenSlide image requested" << endl;
 
