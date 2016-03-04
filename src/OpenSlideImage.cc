@@ -257,6 +257,26 @@ RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, 
 
 }
 
+
+void removeAlphaAndSwapRB(unsigned char* destPixel, unsigned char* sourcePixel) {
+   uint8_t a = sourcePixel[3];
+   if (a == 255) {
+       // Common case.  Compiles to a shift and a BSWAP.
+           memcpy(destPixel + 0, sourcePixel + 2, 1);
+           memcpy(destPixel + 1, sourcePixel + 1, 1);
+           memcpy(destPixel + 2, sourcePixel + 0, 1);
+   } else if (a == 0) {
+           destPixel[0] = 0xFF;
+           destPixel[1] = 0xFF;
+           destPixel[2] = 0xFF;
+   } else {
+       // Unusual case.
+           destPixel[0] = 255 * sourcePixel[2] / a;
+           destPixel[1] = 255 * sourcePixel[2] / a;
+           destPixel[2] = 255 * sourcePixel[0] / a;
+   }
+}
+
 void OpenSlideImage::read(double zoom, long w, long h, long x, long y, void* dest) {
 	
 #ifdef DEBUG
@@ -273,10 +293,7 @@ void OpenSlideImage::read(double zoom, long w, long h, long x, long y, void* des
     unsigned char *temp2 = reinterpret_cast<unsigned char*> (buffer);
     for (int i = 0; i < h; i++) {
         for (int j = 0; j < w; j++) {
-            // memory copy
-            memcpy(temp1 + 0, temp2 + 2, 1);
-            memcpy(temp1 + 1, temp2 + 1, 1);
-            memcpy(temp1 + 2, temp2 + 0, 1);
+           removeAlphaAndSwapRB(temp1, temp2);
             // imageData jump to next line
             temp1 = temp1 + channels;
             // buffer jump to next line
