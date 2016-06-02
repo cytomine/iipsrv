@@ -31,7 +31,7 @@
 #include <limits>
 static bool isfinite( float arg )
 {
-  return arg == arg && 
+  return arg == arg &&
     arg != std::numeric_limits<float>::infinity() &&
     arg != -std::numeric_limits<float>::infinity();
 }
@@ -582,6 +582,8 @@ void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, uns
 void filter_contrast( RawTile& in, float c ){
 
   unsigned long np = in.width * in.height * in.channels;
+  //TODO unsigned int np = ((long)in.dataLength * 8) / in.bpc;
+
   unsigned char* buffer = new unsigned char[np];
   float* infptr = (float*)in.data;
 
