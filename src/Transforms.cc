@@ -477,7 +477,7 @@ void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, uns
 // Function to apply a contrast adjustment and clip to 8 bit
 void filter_contrast( RawTile& in, float c ){
 
-  unsigned int np = ((long)in.dataLength * 8) / in.bpc;
+  unsigned int np = (unsigned int) (((unsigned long int)in.dataLength*8) / in.bpc);
 
   unsigned char* buffer = new unsigned char[np];
 
