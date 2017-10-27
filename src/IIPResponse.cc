@@ -34,7 +34,7 @@ IIPResponse::IIPResponse(){
   server = "Server: iipsrv/" + string(VERSION);
   powered = "X-Powered-By: IIPImage";
   modified = "";
-  cache = "Cache-Control: max-age=86400"; //TODO
+  //cache = "Cache-Control: max-age=86400";
   mimeType = "Content-Type: application/vnd.netfpx";
   cors = "";
   eof = "\r\n";
