@@ -47,7 +47,7 @@ class file_error : public std::runtime_error {
 
 
 // Supported image formats
-enum ImageFormat { TIF, JPEG2000, UNSUPPORTED };
+enum ImageFormat { TIF, JPEG2000, OPENSLIDE, UNSUPPORTED };
 
 
 

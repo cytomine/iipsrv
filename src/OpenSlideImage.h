@@ -10,11 +10,7 @@
 #define	OPENSLIDEIMAGE_H
 
 #include "IIPImage.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
 #include <sys/time.h>
-#include <inttypes.h>
 #include <iostream>
 #include <fstream>
 
@@ -33,9 +29,9 @@ class OpenSlideImage : public IIPImage {
 private:
     openslide_t* osr; //the openslide reader
     /// Tile data buffer pointer
- 
-    uint32_t *osr_buf;
-    // tdata_t tile_buf;    
+
+//    uint32_t *osr_buf;
+    // tdata_t tile_buf;
  
     void downsample_region(openslide_t *osr, uint32_t *buf, int64_t x, int64_t y, int32_t z, int64_t w, int64_t h);
 public:

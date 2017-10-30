@@ -41,7 +41,7 @@ void OpenSlideImage::openImage() throw (std::string) {
 
 
     if (osr == NULL) throw string("Error opening '" + filename + "' with OpenSlide");
-	if (bpp == 0) {
+	if (bpc == 0) {
 		loadImageInfo(currentX, currentY);
 	}
     //readAssociatedImages("label");
@@ -70,7 +70,7 @@ void OpenSlideImage::loadImageInfo(int x, int y) throw (std::string) {
     openslide_get_level0_dimensions(osr, &w, &h);
 
     channels = 3; // how to get it from openslide?
-    bpp = 8;
+    bpc = 8;
 	colourspace = sRGB;	
 
     // const char* comment = openslide_get_comment(osr);
@@ -133,9 +133,9 @@ void OpenSlideImage::loadImageInfo(int x, int y) throw (std::string) {
       //if( (float)smaxvalue[i] == 0.0 ){
         sminvalue[i] = 0.0;
         // Set default values if values not included in header
-        if( bpp == 8 ) smaxvalue[i] = 255.0;
-        else if( bpp == 16 ) smaxvalue[i] = 65535.0;
-        else if( bpp == 32 ) smaxvalue[i] = 4294967295.0;
+        if( bpc == 8 ) smaxvalue[i] = 255.0;
+        else if( bpc == 16 ) smaxvalue[i] = 65535.0;
+        else if( bpc == 32 ) smaxvalue[i] = 4294967295.0;
       //}
       min.push_back( (float)sminvalue[i] );
       max.push_back( (float)smaxvalue[i] );
@@ -225,7 +225,7 @@ RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, 
     int xoffset = (tile % ntlx) * tile_width;
     int yoffset = (unsigned int) floor(tile / ntlx) * tile_height;
 
-    RawTile rawtile(tile, res, seq, ang, tw, th, channels, bpp);
+    RawTile rawtile(tile, res, seq, ang, tw, th, channels, bpc);
 
     // Create our raw tile buffer and initialize some values
     //rawtile.data = NULL;
