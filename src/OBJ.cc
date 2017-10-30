@@ -72,7 +72,6 @@ void OBJ::run( Session* s, const std::string& a )
   else if( argument == "min-max-sample-values" ) min_max_values();
   //Images from OpenSlide
   else if ( argument == "image-properties") image_properties();
-
   // List of available resolutions
   else if( argument == "resolutions" ) resolutions();
 

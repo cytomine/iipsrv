@@ -1,312 +1,268 @@
 #include "OpenSlideImage.h"
 #include "Timer.h"
-#include <tiff.h>
-#include <tiffio.h>
 #include <cmath>
 #include <sstream>
 
-#include <sstream>
-#define DEBUG
+#define DEBUG true
 using namespace std;
 
 #ifdef DEBUG
 extern std::ofstream logfile;
 #endif
 
-/// Overloaded function for opening a TIFF image
 
-void OpenSlideImage::openImage() throw (std::string) {
+void OpenSlideImage::openImage() throw( file_error ) {
 
-    string filename = getFileName(currentX, currentY);
+  string filename = getFileName( currentX, currentY );
 
-    // Check if our image has been modified
-    updateTimestamp(filename);
+  // Check if our image has been modified
+  updateTimestamp( filename );
 
+//  bool canOpen = openslide_can_open(filename.c_str());
+//  if (!canOpen) throw string("Can't open '" + filename + "' with OpenSlide");
 
+  Timer timer;
+  timer.start();
 
-    /*bool canOpen = openslide_can_open(filename.c_str());
-    if (!canOpen) throw string("Can't open '" + filename + "' with OpenSlide");
-	*/
-    Timer timer;
-    timer.start();
-
-    osr = openslide_open(filename.c_str());
-
-#ifdef DEBUG
-    const char* test = openslide_get_error(osr);
-    if(test!=NULL) {
-        logfile << "OpenSlideImage :: osr errors "<< test << " " << endl;
-    }
-#endif
-
-
-    if (osr == NULL) throw string("Error opening '" + filename + "' with OpenSlide");
-	if (bpc == 0) {
-		loadImageInfo(currentX, currentY);
-	}
-    //readAssociatedImages("label");
+  osr = openslide_open( filename.c_str());
+  if ( osr == NULL )
+    throw file_error( "Error opening '" + filename + "' with OpenSlide" );
 
 #ifdef DEBUG
-    logfile << "OpenSlide :: openImage() :: " << timer.getTime() << " microseconds" << endl;
+  const char *test = openslide_get_error( osr );
+  if ( test != NULL ) {
+    logfile << "OpenSlideImage :: osr errors " << test << " " << endl;
+  }
 #endif
-	
-	isSet = true;
-	
+
+  if ( bpc == 0 ) {
+    loadImageInfo( currentX, currentY );
+  }
+
+  //readAssociatedImages("label");
+
+#ifdef DEBUG
+  logfile << "OpenSlide :: openImage() :: " << timer.getTime()
+          << " microseconds" << endl;
+#endif
+
+  isSet = true;
+
 }
 
-void OpenSlideImage::loadImageInfo(int x, int y) throw (std::string) {
+void OpenSlideImage::loadImageInfo( int x, int y ) throw( file_error ) {
 
 #ifdef DEBUG
-    logfile << "OpenSlideImage :: loadImageInfo()" << endl; 
-#endif  
-
-    int64_t w, h;
-    currentX = x;
-    currentY = y;
-
-    tile_width = 256;
-    tile_height = 256;        
-
-    openslide_get_level0_dimensions(osr, &w, &h);
-
-    channels = 3; // how to get it from openslide?
-    bpc = 8;
-	colourspace = sRGB;	
-
-    // const char* comment = openslide_get_comment(osr);
-
-#ifdef DEBUG
-    logfile << "dimensions :" << w << " x " << h << endl;
-    //logfile << "comment : " << comment << endl;
-#endif
-    //int32_t layers = openslide_get_layer_count(osr);
-
-
-
-#ifdef DEBUG
-    //logfile << "num layers : " << layers;
-#endif
-    image_widths.clear();
-    image_heights.clear();
-    /*for (int32_t i = 0; i < layers; i++) {
-	int64_t ww, hh;
-        openslide_get_level_dimensions(osr, i, &ww, &hh);
-    
-        image_widths.push_back(ww);
-        image_heights.push_back(hh);
-    
-    #ifdef DEBUG
-	logfile << " layer " << i << "dimensions : " << ww << " x " << hh << endl;
-    #endif
-    }*/
-
-
-    unsigned int w_tmp = w;
-    unsigned int h_tmp = h;
-    image_widths.push_back(w_tmp);
-    image_heights.push_back(h_tmp);
-    while ((w_tmp > tile_width) || (h_tmp > tile_height)) {
-        w_tmp = (int) floor(w_tmp / 2);
-        h_tmp = (int) floor(h_tmp / 2);
-
-        image_widths.push_back(w_tmp);
-        image_heights.push_back(h_tmp);
-#ifdef DEBUG
-        logfile << "Create virtual layer : " << w_tmp << "x" << h_tmp << std::endl;
-#endif
-    }
-
-#ifdef DEBUG
-    std::cout << std::endl;
-    for (int t = 0; t < image_widths.size(); t++) {
-        logfile  << "image_widths[" << t << "]" << image_widths[t] << std::endl;
-        logfile  << "image_heights[" << t << "]" << image_heights[t] << std::endl;
-    }
+  logfile << "OpenSlideImage :: loadImageInfo()" << endl;
 #endif
 
-    numResolutions = image_widths.size();
+  long int w, h;
+  const char *vendor;
+  currentX = x;
+  currentY = y;
 
-	double sminvalue[4], smaxvalue[4];
-    min.clear();
-    max.clear();
-    for( int i=0; i<channels; i++ ){
-      //if( (float)smaxvalue[i] == 0.0 ){
-        sminvalue[i] = 0.0;
-        // Set default values if values not included in header
-        if( bpc == 8 ) smaxvalue[i] = 255.0;
-        else if( bpc == 16 ) smaxvalue[i] = 65535.0;
-        else if( bpc == 32 ) smaxvalue[i] = 4294967295.0;
-      //}
-      min.push_back( (float)sminvalue[i] );
-      max.push_back( (float)smaxvalue[i] );
-    }
+  openslide_get_level0_dimensions( osr, &w, &h );
+
+  channels = 3; // how to get it from openslide?
+  bpc = 8;
+  colourspace = sRGB;
+  vendor = openslide_get_property_value( osr, OPENSLIDE_PROPERTY_NAME_VENDOR );
+
+#ifdef DEBUG
+  logfile << "dimensions :" << w << " x " << h << endl;
+  logfile << "vendor : " << vendor << endl;
+#endif
+
+  image_widths.clear();
+  image_heights.clear();
+
+  unsigned int w_tmp = w;
+  unsigned int h_tmp = h;
+  image_widths.push_back( w_tmp );
+  image_heights.push_back( h_tmp );
+  while ((w_tmp > tile_width) || (h_tmp > tile_height)) {
+    w_tmp = (int) floor( w_tmp / 2 );
+    h_tmp = (int) floor( h_tmp / 2 );
+
+    image_widths.push_back( w_tmp );
+    image_heights.push_back( h_tmp );
+
+#ifdef DEBUG
+    logfile << "Create virtual layer : " << w_tmp << "x" << h_tmp << std::endl;
+#endif
+  }
+
+#ifdef DEBUG
+  for ( int t = 0; t < image_widths.size(); t++ ) {
+    logfile << "image_widths[" << t << "]" << image_widths[t] << std::endl;
+    logfile << "image_heights[" << t << "]" << image_heights[t] << std::endl;
+  }
+#endif
+
+  numResolutions = image_widths.size();
+  min.clear();
+  max.clear();
+
+  float smaxvalue[4];
+  for ( int i = 0; i < channels; i++ ) {
+    // Set default values if values not included in header
+    if ( bpc == 8 ) smaxvalue[i] = 255.0;
+    else if ( bpc == 16 ) smaxvalue[i] = 65535.0;
+    else if ( bpc == 32 ) smaxvalue[i] = 4294967295.0;
+
+    min.push_back( 0.0 );
+    max.push_back( smaxvalue[i] );
+  }
 }
 
-/// Overloaded function for closing a TIFF image
 
 void OpenSlideImage::closeImage() {
 #ifdef DEBUG
-    Timer timer;
-    timer.start();
+  Timer timer;
+  timer.start();
 #endif
 
-    if (osr != NULL) {
-        openslide_close(osr);
-        osr = NULL;
-    }
-        
+  if ( osr != NULL ) {
+    openslide_close( osr );
+    osr = NULL;
+  }
+
 #ifdef DEBUG
-    logfile << "OpenSlide :: closeImage() :: " << timer.getTime() << " microseconds" << endl;
+  logfile << "OpenSlide :: closeImage() :: " << timer.getTime()
+          << " microseconds" << endl;
 #endif
 }
 
-/// Overloaded function for getting a particular tile
 
-/** \param x horizontal sequence angle
-    \param y vertical sequence angle
-    \param r resolution
-    \param l number of quality layers to decode
-    \param t tile number
- */
-RawTile OpenSlideImage::getTile(int seq, int ang, unsigned int res, int layers, unsigned int tile) throw (string) {
+RawTile OpenSlideImage::getTile( int seq, int ang, unsigned int res,
+                                 int layers, unsigned int tile ) throw( file_error ) {
 
-    Timer timer;
-    timer.start();
+  Timer timer;
+  timer.start();
 
-    if (res > (numResolutions-1)) {
-        ostringstream tile_no;
-        tile_no << "OpenSlide :: Asked for non-existant resolution: " << res;
-        throw tile_no.str();
-		return 0;
-    }
+  if ( res > (numResolutions - 1)) {
+    ostringstream tile_no;
+    tile_no << "OpenSlide :: Asked for non-existant resolution: " << res;
+    throw file_error( tile_no.str());
+  }
 
-    int64_t layer_width = image_widths[numResolutions - 1 - res];
-    int64_t layer_height = image_heights[numResolutions - 1 - res];
-    
-    //openslide_get_layer_dimensions(osr, layers, &layer_width, &layer_height);
+  unsigned int openslide_zoom = numResolutions - 1 - res;
+  long int layer_width = image_widths[openslide_zoom];
+  long int layer_height = image_heights[openslide_zoom];
+  //openslide_get_level_dimensions(osr, level, &layer_width, &layer_height);
 
+  unsigned int tw = tile_width;
+  unsigned int th = tile_height;
 
-    unsigned int tw = tile_width;
-    unsigned int th = tile_height;
+  // Get the width and height for last row and column tiles
+  unsigned int rem_x = layer_width % tw;
+  unsigned int rem_y = layer_height % th;
 
-    // Get the width and height for last row and column tiles
-    unsigned int rem_x = layer_width % tw;
-    unsigned int rem_y = layer_height % th;
-
-    // Calculate the number of tiles in each direction
-    unsigned int ntlx = (layer_width / tw) + (rem_x == 0 ? 0 : 1);
-    unsigned int ntly = (layer_height / th) + (rem_y == 0 ? 0 : 1);
+  // Calculate the number of tiles in each direction
+  unsigned int ntlx = (layer_width / tw) + (rem_x == 0 ? 0 : 1);
+  unsigned int ntly = (layer_height / th) + (rem_y == 0 ? 0 : 1);
 
 
-    if (tile >= ntlx * ntly) {
-        ostringstream tile_no;
-        tile_no << "OpenSlideImage :: Asked for non-existant tile: " << tile;
-        throw tile_no.str();
-    }
+  if ( tile >= ntlx * ntly ) {
+    ostringstream tile_no;
+    tile_no << "OpenSlideImage :: Asked for non-existant tile: " << tile;
+    throw file_error( tile_no.str());
+  }
 
+  // Alter the tile size if it's in the last column
+  if ((tile % ntlx == ntlx - 1) && (rem_x != 0)) {
+    tw = rem_x;
+  }
 
-    double openslide_zoom = this->numResolutions - 1 - res;
+  // Alter the tile size if it's in the bottom row
+  if ((tile / ntlx == ntly - 1) && rem_y != 0 ) {
+    th = rem_y;
+  }
 
-    int pos_factor = pow(2, openslide_zoom);
+  // Calculate the pixel offsets for this tile
+  int xoffset = (tile % ntlx) * tile_width;
+  int yoffset = (unsigned int) floor( tile / ntlx ) * tile_height;
 
+  // Create our raw tile buffer and initialize some values
+  RawTile rawtile( tile, res, seq, ang, tw, th, channels, bpc );
+  rawtile.dataLength = tw * th * channels / sizeof( unsigned char );
+  rawtile.filename = getImagePath();
+  rawtile.timestamp = timestamp;
+  rawtile.data = new unsigned char[tw * th * channels];
+  //rawtile.memoryManaged = 0;
+  //rawtile.padded = false;
 
-
-     // Alter the tile size if it's in the last column
-    if ((tile % ntlx == ntlx - 1) && (rem_x != 0)) {
-        tw = rem_x;
-    }
-
-    // Alter the tile size if it's in the bottom row
-    if ((tile / ntlx == ntly - 1) && rem_y != 0) {
-        th = rem_y;
-    }
-    
-    // Calculate the pixel offsets for this tile
-    int xoffset = (tile % ntlx) * tile_width;
-    int yoffset = (unsigned int) floor(tile / ntlx) * tile_height;
-
-    RawTile rawtile(tile, res, seq, ang, tw, th, channels, bpc);
-
-    // Create our raw tile buffer and initialize some values
-    //rawtile.data = NULL;
-    rawtile.dataLength = tw * th* channels / sizeof(unsigned char);
-    rawtile.filename = getImagePath();
-    rawtile.timestamp = timestamp;
-    rawtile.data = new unsigned char[tw*th*channels];
-    //rawtile.memoryManaged = 0;
-    //rawtile.padded = false;
 #ifdef DEBUG
-    logfile << "Allocating tw * th * channels * sizeof(char) : " << tw << " * " << th << " * " << channels << " * sizeof(char) " << endl << flush;
+  logfile << "Allocating tw * th * channels * sizeof(char) : "
+          << tw << " * " << th << " * " << channels
+          << " * sizeof(char) " << endl << flush;
 #endif
-    //char* dest =  (char*) malloc(tw * th * channels * sizeof(char));
-    //if (!dest) throw string("FATAL : getTile >> allocation memory ERROR");
-    read(openslide_zoom, tw, th, (long) xoffset * pos_factor, (long) yoffset * pos_factor, rawtile.data);
-    //rawtile.data = dest;
 
+  int pos_factor = pow( 2, openslide_zoom );
+  read( openslide_zoom, tw, th, (long) xoffset * pos_factor,
+        (long) yoffset * pos_factor, rawtile.data );
 
 #ifdef DEBUG
-    logfile << "OpenSlide :: getTile() :: " << timer.getTime() << " microseconds" << endl << flush;
+  logfile << "OpenSlide :: getTile() :: " << timer.getTime()
+          << " microseconds" << endl << flush;
 #endif
 
 #ifdef DEBUG
-    logfile << "TILE RENDERED" << std::endl;
+  logfile << "TILE RENDERED" << std::endl;
 #endif
 
-    return ( rawtile);
-
-
+  return (rawtile);
 }
 
 
-void removeAlphaAndSwapRB(unsigned char* destPixel, unsigned char* sourcePixel) {
-   uint8_t a = sourcePixel[3];
-   if (a == 255) {
-       // Common case.  Compiles to a shift and a BSWAP.
-           memcpy(destPixel + 0, sourcePixel + 2, 1);
-           memcpy(destPixel + 1, sourcePixel + 1, 1);
-           memcpy(destPixel + 2, sourcePixel + 0, 1);
-   } else if (a == 0) {
-           destPixel[0] = 0xFF;
-           destPixel[1] = 0xFF;
-           destPixel[2] = 0xFF;
-   } else {
-       // Unusual case.
-           destPixel[0] = 255 * sourcePixel[2] / a;
-           destPixel[1] = 255 * sourcePixel[2] / a;
-           destPixel[2] = 255 * sourcePixel[0] / a;
-   }
+void removeAlphaAndSwapRB( unsigned char *destPixel, unsigned char *sourcePixel ) {
+  unsigned char a = sourcePixel[3];
+  if ( a == 255 ) {
+    // Common case.  Compiles to a shift and a BSWAP.
+    memcpy( destPixel + 0, sourcePixel + 2, 1 );
+    memcpy( destPixel + 1, sourcePixel + 1, 1 );
+    memcpy( destPixel + 2, sourcePixel + 0, 1 );
+  } else if ( a == 0 ) {
+    destPixel[0] = 0xFF;
+    destPixel[1] = 0xFF;
+    destPixel[2] = 0xFF;
+  } else {
+    // Unusual case.
+    destPixel[0] = 255 * sourcePixel[2] / a;
+    destPixel[1] = 255 * sourcePixel[2] / a;
+    destPixel[2] = 255 * sourcePixel[0] / a;
+  }
 }
 
-void OpenSlideImage::read(double zoom, long w, long h, long x, long y, void* dest) {
-	
+void OpenSlideImage::read( int zoom, long w, long h, long x, long y, void *dest ) {
 #ifdef DEBUG
-    logfile << "OpenSlide READ zoom, w, h, x, y :" << zoom  << "," << w << "," << h << "," << x << "," << y << std::endl;
+  logfile << "OpenSlide READ zoom, w, h, x, y :" << zoom << "," << w << ","
+          << h << "," << x << "," << y << std::endl;
 #endif
-    uint32_t* buffer =  new uint32_t[w * h * 4];
-    if (!buffer) throw string("FATAL : OpenSlideImage READ => allocation memory ERROR");
-    //openslide_read_region(osr, buffer, (int64_t) x, (int64_t) y, zoom, (int64_t) w, (int64_t) h);
 
-    this->downsample_region(osr, buffer, (int64_t) x, (int64_t) y, zoom, (int64_t) w, (int64_t) h);
-    
-    //std::cout << "READ " << x << "," << y << "," << w << "," << h << std::endl;
-    unsigned char *temp1 = reinterpret_cast<unsigned char*> (dest);
-    unsigned char *temp2 = reinterpret_cast<unsigned char*> (buffer);
-    for (int i = 0; i < h; i++) {
-        for (int j = 0; j < w; j++) {
-           removeAlphaAndSwapRB(temp1, temp2);
-            // imageData jump to next line
-            temp1 = temp1 + channels;
-            // buffer jump to next line
-            temp2 = temp2 + 4;
-        }
+  unsigned int *buffer = new unsigned int[w * h * 4];
+  downsample_region( osr, buffer, x, y, zoom, w, h );
 
+  unsigned char *temp1 = reinterpret_cast<unsigned char *> (dest);
+  unsigned char *temp2 = reinterpret_cast<unsigned char *> (buffer);
+  for ( int i = 0; i < h; i++ ) {
+    for ( int j = 0; j < w; j++ ) {
+      removeAlphaAndSwapRB( temp1, temp2 );
+      // imageData jump to next line
+      temp1 = temp1 + channels;
+      // buffer jump to next line
+      temp2 = temp2 + 4;
     }
+  }
+
 #ifdef DEBUG
-    logfile << "FREE BUFFER..." << std::endl;
+  logfile << "FREE BUFFER..." << std::endl;
 #endif
-    delete[](buffer);
+
+  delete[](buffer);
+
 #ifdef DEBUG
-    logfile << "DONE..." << std::endl;
+  logfile << "DONE..." << std::endl;
 #endif
 }
 
@@ -321,57 +277,57 @@ void OpenSlideImage::read(double zoom, long w, long h, long x, long y, void* des
  * This downsampling method simply skips pixel. If interpolation is desired,
  * an image processing library could be used.
  */
-void OpenSlideImage::downsample_region(openslide_t *osr, uint32_t *buf, int64_t x, int64_t y, int32_t z, int64_t w, int64_t h) {
+void OpenSlideImage::downsample_region( openslide_t *osr, unsigned int *buf, long int x,
+                                        long int y, int z, long int w, long int h ) {
 
-    /* find the next layer to downsample to desired zoom level z*/
-    int bestLayer = openslide_get_best_level_for_downsample(osr, pow(2, z));
+  /* find the next layer to downsample to desired zoom level z*/
+  int bestLayer = openslide_get_best_level_for_downsample( osr, pow( 2, z ));
 
-    /*calculate downsampling factor, should be 1,2,4,8...*/
-    double downSamplingFactor = (double) (pow(2, z) /
-            openslide_get_level_downsample(osr, bestLayer));
-    /*   printf("Down Sampling Factor = %ld\n", downSamplingFactor); */
+  /*calculate downsampling factor, should be 1,2,4,8...*/
+  double downSamplingFactor = (pow( 2, z ) / openslide_get_level_downsample( osr, bestLayer ));
 
-    if (downSamplingFactor > 1.0) { /* need to downsample */
+  if ( downSamplingFactor > 1.0 ) {
+    /* need to downsample */
 #ifdef DEBUG
-        logfile << "openslide_downsampling bestLayer " << bestLayer << std::endl;
+    logfile << "openslide_downsampling bestLayer " << bestLayer << std::endl;
 #endif
-        // allocate a buffer large enough to hold the best layer
-	
-        uint32_t *tmpbuf = (uint32_t *) malloc(ceil(w * downSamplingFactor) * ceil(h * downSamplingFactor) * 4);
-        
-        openslide_read_region(osr, tmpbuf, x, y, bestLayer, ceil(w * downSamplingFactor), ceil(h * downSamplingFactor));
-        if (!tmpbuf) throw string("FATAL : OpenSlideImage downsample_region => allocation memory ERROR");
-        // Debugging output Before Downsampling/
-        //    char tileFileName[MAX_PATH];
-        //    sprintf(tileFileName, "zoom%d-row%ld.jpg", z, y); 
-        //    SaveJPGFile((unsigned char*)tmpbuf, 
-        //            (unsigned long)w*downSamplingFactor, 
-        //            (unsigned long)h*downSamplingFactor, 
-        //            (unsigned long)w*downSamplingFactor*4, 32, tileFileName, 75); 
+    // allocate a buffer large enough to hold the best layer
+    unsigned int *tmpbuf = (unsigned int *) malloc( ceil( w * downSamplingFactor )
+                                                    * ceil( h * downSamplingFactor ) * 4 );
+    if ( !tmpbuf )
+      throw string( "FATAL : OpenSlideImage downsample_region => allocation memory ERROR" );
 
-        // down sample loop 
-        int row, col;
-        for (row = 0; row < h; row++) {
-            uint32_t *dest = buf + (unsigned long) (w * row);
-            uint32_t *src = tmpbuf + (unsigned long) (ceil(w * downSamplingFactor) * ceil(row * downSamplingFactor));
-            uint32_t *cdest = src, *csrc = src;
-            for (col = 1; col < w; col++) {
-                *(cdest + (unsigned long) col) = *(csrc + (unsigned long) (col * downSamplingFactor));
-            }
-            memcpy(dest, src, (unsigned long) (w * 4));
-        }
-        free(tmpbuf);
+    openslide_read_region( osr, tmpbuf, x, y, bestLayer, ceil( w * downSamplingFactor ),
+                           ceil( h * downSamplingFactor ));
 
-    } else { /* no need to downsample, since zoom level is in the slide  */
-#ifdef DEBUG
-        logfile << "openslide_read_region" << std::endl;
-#endif
-        openslide_read_region(osr, buf, x, y, bestLayer, w, h);
+    // Debugging output Before Downsampling/
+    //    char tileFileName[MAX_PATH];
+    //    sprintf(tileFileName, "zoom%d-row%ld.jpg", z, y);
+    //    SaveJPGFile((unsigned char*)tmpbuf,
+    //            (unsigned long)w*downSamplingFactor,
+    //            (unsigned long)h*downSamplingFactor,
+    //            (unsigned long)w*downSamplingFactor*4, 32, tileFileName, 75);
 
+    // down sample loop
+    int row, col;
+    for ( row = 0; row < h; row++ ) {
+      unsigned int *dest = buf + (unsigned long) (w * row);
+      unsigned int *src = tmpbuf + (unsigned long) (ceil( w * downSamplingFactor )
+                                                    * ceil( row * downSamplingFactor ));
+      unsigned int *cdest = src, *csrc = src;
+      for ( col = 1; col < w; col++ ) {
+        *(cdest + (unsigned long) col) = *(csrc + (unsigned long) (col * downSamplingFactor));
+      }
+      memcpy( dest, src, (unsigned long) (w * 4));
     }
+    free( tmpbuf );
 
+  } else {
+    /* no need to downsample, since zoom level is in the slide  */
+#ifdef DEBUG
+    logfile << "openslide_read_region" << std::endl;
+#endif
+
+    openslide_read_region( osr, buf, x, y, bestLayer, w, h );
+  }
 }
-
-
-
-
