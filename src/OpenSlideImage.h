@@ -38,7 +38,6 @@ public:
     tile_width = TILESIZE;
     tile_height = TILESIZE;
     osr = NULL;
-    numResolutions = 0;
   };
 
   /// Constructor
@@ -48,7 +47,6 @@ public:
     tile_width = TILESIZE;
     tile_height = TILESIZE;
     osr = NULL;
-    numResolutions = 0;
   };
 
   /// Copy Constructor
@@ -58,7 +56,6 @@ public:
     tile_width = TILESIZE;
     tile_height = TILESIZE;
     osr = NULL;
-    numResolutions = 0;
   };
 
   /// Destructor
