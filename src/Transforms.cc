@@ -341,7 +341,7 @@ void filter_LAB2sRGB( RawTile& in ){
 
 
 // Colormap function
-void filter_cmap( RawTile& in, enum cmap_type cmap ){
+void filter_cmap( RawTile& in, std::string cmap ){
 
   float value;
   unsigned in_chan = in.channels;
@@ -355,70 +355,90 @@ void filter_cmap( RawTile& in, enum cmap_type cmap ){
   float *outptr = new float[ndata*out_chan];
   float *outv = outptr;
 
-  switch(cmap){
-    case HOT:
+  if ( cmap == "hot" ) {
 #if defined(__ICC) || defined(__INTEL_COMPILER)
 #pragma ivdep
 #endif
-      for( int unsigned n=0; n<ndata; n+=in_chan, outv+=3 ){
-        value = fptr[n];
-        if(value>1.)
-          { outv[0]=outv[1]=outv[2]=1.; }
-        else if(value<=0.)
-          { outv[0]=outv[1]=outv[2]=0.; }
-        else if(value<max3)
-          { outv[0]=3.*value; outv[1]=outv[2]=0.; }
-        else if(value<2*max3)
-          { outv[0]=1.; outv[1]=3.*value-1.; outv[2]=0.; }
-        else if(value<1.)
-          { outv[0]=outv[1]=1.; outv[2]=3.*value-2.; }
-        else { outv[0]=outv[1]=outv[2]=1.; }
-      }
-      break;
-    case COLD:
+    for( int unsigned n=0; n<ndata; n+=in_chan, outv+=3 ){
+      value = fptr[n];
+      if(value>1.)
+      { outv[0]=outv[1]=outv[2]=1.; }
+      else if(value<=0.)
+      { outv[0]=outv[1]=outv[2]=0.; }
+      else if(value<max3)
+      { outv[0]=3.*value; outv[1]=outv[2]=0.; }
+      else if(value<2*max3)
+      { outv[0]=1.; outv[1]=3.*value-1.; outv[2]=0.; }
+      else if(value<1.)
+      { outv[0]=outv[1]=1.; outv[2]=3.*value-2.; }
+      else { outv[0]=outv[1]=outv[2]=1.; }
+    }
+  }
+  else if ( cmap == "cold" ) {
 #if defined(__ICC) || defined(__INTEL_COMPILER)
 #pragma ivdep
 #endif
-      for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ){
-        value = fptr[n];
-        if(value>1.)
-          { outv[0]=outv[1]=outv[2]=1.; }
-        else if(value<=0.)
-          { outv[0]=outv[1]=outv[2]=0.; }
-        else if(value<max3)
-          { outv[0]=outv[1]=0.; outv[2]=3.*value; }
-        else if(value<2.*max3)
-          { outv[0]=0.; outv[1]=3.*value-1.; outv[2]=1.; }
-        else if(value<1.)
-          { outv[0]=3.*value-2.; outv[1]=outv[2]=1.; }
-        else {outv[0]=outv[1]=outv[2]=1.;}
-      }
-      break;
-    case JET:
-#if defined(__ICC) || defined(__INTEL_COMPILER)
-#pragma ivdep
-#endif
-      for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ){
-        value = fptr[n];
-        if(value<0.)
-          { outv[0]=outv[1]=outv[2]=0.; }
-        else if(value<max8)
-          { outv[0]=outv[1]=0.; outv[2]= 4.*value + 0.5; }
-        else if(value<3.*max8)
-          { outv[0]=0.; outv[1]= 4.*value - 0.5; outv[2]=1.; }
-        else if(value<5.*max8)
-          { outv[0]= 4*value - 1.5; outv[1]=1.; outv[2]= 2.5 - 4.*value; }
-        else if(value<7.*max8)
-          { outv[0]= 1.; outv[1]= 3.5 -4.*value; outv[2]= 0; }
-        else if(value<1.)
-          { outv[0]= 4.5-4.*value; outv[1]= outv[2]= 0.; }
-        else { outv[0]=0.5; outv[1]=outv[2]=0.; }
-      }
-      break;
-    default:
-      break;
-    };
+    for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ){
+      value = fptr[n];
+      if(value>1.)
+      { outv[0]=outv[1]=outv[2]=1.; }
+      else if(value<=0.)
+      { outv[0]=outv[1]=outv[2]=0.; }
+      else if(value<max3)
+      { outv[0]=outv[1]=0.; outv[2]=3.*value; }
+      else if(value<2.*max3)
+      { outv[0]=0.; outv[1]=3.*value-1.; outv[2]=1.; }
+      else if(value<1.)
+      { outv[0]=3.*value-2.; outv[1]=outv[2]=1.; }
+      else {outv[0]=outv[1]=outv[2]=1.;}
+    }
 
+  }
+  else if ( cmap == "jet" ) {
+#if defined(__ICC) || defined(__INTEL_COMPILER)
+#pragma ivdep
+#endif
+    for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ){
+      value = fptr[n];
+      if(value<0.)
+      { outv[0]=outv[1]=outv[2]=0.; }
+      else if(value<max8)
+      { outv[0]=outv[1]=0.; outv[2]= 4.*value + 0.5; }
+      else if(value<3.*max8)
+      { outv[0]=0.; outv[1]= 4.*value - 0.5; outv[2]=1.; }
+      else if(value<5.*max8)
+      { outv[0]= 4*value - 1.5; outv[1]=1.; outv[2]= 2.5 - 4.*value; }
+      else if(value<7.*max8)
+      { outv[0]= 1.; outv[1]= 3.5 -4.*value; outv[2]= 0; }
+      else if(value<1.)
+      { outv[0]= 4.5-4.*value; outv[1]= outv[2]= 0.; }
+      else { outv[0]=0.5; outv[1]=outv[2]=0.; }
+    }
+  }
+  else if ( cmap == "red" ) {
+    for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ) {
+      value = fptr[n];
+      outv[0] = value;
+      outv[1] = outv[2] = 0.;
+    }
+  }
+  else if ( cmap == "green" ) {
+    for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ) {
+      value = fptr[n];
+      outv[0] = outv[2] = 0.;
+      outv[1] = value;
+    }
+  }
+  else if ( cmap == "blue" ) {
+    for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ) {
+      value = fptr[n];
+      outv[0] = outv[1] = 0;
+      outv[2] = value;
+    }
+  }
+  else {
+
+  }
 
   // Delete old data buffer
   delete[] (float*) in.data;

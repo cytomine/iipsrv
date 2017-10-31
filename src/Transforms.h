@@ -38,8 +38,7 @@ void filter_normalize( RawTile& in, std::vector<float>& max, std::vector<float>&
 /** @param in tile data to be converted
     @param cmap color map to apply.
 */
-enum cmap_type { HOT, COLD, JET, BLUE, GREEN, RED };
-void filter_cmap( RawTile& in, enum cmap_type cmap );
+void filter_cmap( RawTile& in, std::string cmap );
 
 /// Function to invert colormaps
 /** @param in tile data to be adjusted

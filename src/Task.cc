@@ -21,6 +21,7 @@
 
 #include "Task.h"
 #include "Tokenizer.h"
+#include "URL.h"
 #include <cstdlib>
 #include <algorithm>
 
@@ -352,22 +353,33 @@ void CMP::run( Session* session, const string& argument ){
   /* The argument is the colormap type: available colormaps are
      HOT, COLD, JET, BLUE, GREEN, RED
    */
+  if( session->loglevel >= 2 ) *(session->logfile) << "CMP handler reached" << endl;
+  if( session->loglevel >= 3 ) *(session->logfile) << "CMP :: requested colormap is " << argument << endl;
+  session->view->cmapped = true;
 
   // Convert to lower case in order to do our string comparison
   string ctype = argument;
   transform( ctype.begin(), ctype.end(), ctype.begin(), ::tolower );
+  if (ctype == "hot" || ctype == "cold" || ctype == "jet"
+      || ctype == "blue" || ctype == "red" || ctype == "green") {
+    session->view->cmap = ctype;
+  }
+  else {
+    URL url( argument );
+    ctype = url.decode();
 
-  if( session->loglevel >= 2 ) *(session->logfile) << "CMP handler reached" << endl;
-  if( session->loglevel >= 3 ) *(session->logfile) << "CMP :: requested colormap is " << ctype << endl;
-  session->view->cmapped = true;
+    // Filter out any ../ to prevent users by-passing any file system prefix
+    unsigned int n;
+    while( (n=ctype.find("../")) < ctype.length() ) ctype.erase(n,3);
 
-  if (ctype=="hot") session->view->cmap = HOT;
-  else if (ctype=="cold") session->view->cmap = COLD;
-  else if (ctype=="jet") session->view->cmap = JET;
-  else if (ctype=="blue") session->view->cmap = BLUE;
-  else if (ctype=="green") session->view->cmap = GREEN;
-  else if (ctype=="red") session->view->cmap = RED;
-  else session->view->cmapped = false;
+    ifstream f(ctype.c_str());
+    if (!f.good()) {
+      session->view->cmapped = false;
+      if ( session->loglevel >= 3 ) *(session->logfile) << "CMP :: requested custom colormap does not exist" << endl;
+    }
+    else
+      session->view->cmap = ctype;
+  }
 }
 
 
