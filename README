@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------
        IIPImage - High Resolution Streaming Imaging Server
-	Forked by Cytomine
+	   Forked by Cytomine
 -----------------------------------------------------------------------
 
 
@@ -38,6 +38,42 @@ DOCUMENTATION
 -------------
 Detailed class descriptions (generated using doxygen) are available in the
 doc subdirectory
+
+### IIP Protocol
+
+#### Input
+Must be the fist command.
+
+| Command | Usage | Description |
+| ------- | ----| ---- |
+| FIF | FIF=/path/image.tif | |
+| Zoomify | Zoomify=/path/image.tif | |
+| Deepzoom | DeepZoom=/path/image.tif.dzi | |
+
+#### Output
+Must be the last command.
+
+| Command | Usage | Description |
+| ------- | ----| ---- |
+| CVT | `CVT=f` | Return the full image or a region, in `f` format, only `jpeg` supported.  |
+| JTL | `JTL=r,n` | Return a tile with index `n` at resolution level `r`, in JPEG format |
+| PFL | `PFL=r:x1,y1-x2,y2` | Export profile at resolution `r` from position `(x1,y1)` to `(x2,y2)`. Only horizontal or vertical profiles are currently supported |
+| SPECTRA | `SPECTRA=r,t,x,y` | Return pixel values in all image channels for a particular point `(x,y)` on tile `t` at resolution `r` in XML format. |
+
+#### Transformation parameters
+| Command | Usage | Description |
+| ------- | ----| ---- |
+| WID | `WID=w` | Requested export image width `w` in pixels for CVT requests |
+| HEI | `HEI=h` | Requested export image height `h` in pixels for CVT requests |
+| RGN | `RGN=x,y,w,h` | Define a region of interest starting at relative coordinates `(x,y)` with width `w` and height `h`. All values should be in ratios 0-1.0  |
+| CNT | `CNT=c` | Contrast – multiplication of pixel values by factor `c`|
+| GAM | `GAM=g` | Apply gamma correction `g`|
+| CMP | `CMP=s` | Generate colormap using one of the colormap schemes `s`, pre-defined `red`, `green`, `blue`, `hot`, `cold`, `jet`, or customized `/path/colormap.cmap`  |
+| INV | `INV` | Invert image or colormap |
+| ROT | `ROT=r` | Rotate the image by `r`|
+| QLT | `QLT=q` | JPEG quality factor `q` between 0 (worst) and 100 (best) |
+| MINMAX | `MINMAX=c:min,max` | Set minimum `min` and maximum `max` for channel `c`|
+
 
 
 
@@ -91,9 +127,8 @@ environment using autogen.sh:
 
 Then, execute the following commands :
 
-Otherwise for release versions, use configure directly:
-- LDFLAGS="-L/usr/local/lib -lopenslide" CPPFLAGS="-I/usr/local/include/openslide" ./configure
-- make
+    LDFLAGS="-L/usr/local/lib -lopenslide" CPPFLAGS="-I/usr/local/include/openslide" ./configure
+    make
 
 OPTIONAL LIBRARIES: MEMCACHED
 -----------------------------
@@ -254,7 +289,6 @@ EXAMPLE SERVER CONFIGURATIONS
 httpd.conf example extract:
 
 ```
---------------------------------------------------------------------
 # Create a directory for the iipsrv binary
 ScriptAlias /fcgi-bin/ "/usr/local/httpd/fcgi-bin/"
 
@@ -286,9 +320,7 @@ FastCgiServer /usr/local/httpd/fcgi-bin/iipsrv.fcgi \
 -initial-env MAX_CVT=3000 \
 -listen-queue-depth 2048 \
 -processes 1
---------------------------------------------------------------------
 ```
-
 
 
 ### Apache and mod_fcgid
@@ -304,7 +336,6 @@ Here is an example configuration. Note that mod_fcgid does not have a
 FastCgiServer directive and there is no need to explicitly start the server:
 
 ```
--------------------------------------------------------------------
 # Create a directory for the iipsrv binary
 ScriptAlias /fcgi-bin/ "/var/www/localhost/fcgi-bin/"
 
@@ -336,8 +367,6 @@ FcgidInitialEnv MAX_CVT "3000"
 # processes we want
 FcgidIdleTimeout 0
 FcgidMaxProcessesPerClass 1
-
--------------------------------------------------------------------
 ```
 
 Note that on CentOS, FcgidIPCDir is configured by default to 
@@ -349,7 +378,6 @@ specify another location for FcgidIPCDir, which is writable, such as /tmp/fcgids
 lighttpd.conf example extract:
 
 ```
---------------------------------------------------------------------
 fastcgi.server = ( "/fcgi-bin/iipsrv.fcgi" =>
   (( "host" => "127.0.0.1",
      "port" => 9000,
@@ -367,7 +395,6 @@ fastcgi.server = ( "/fcgi-bin/iipsrv.fcgi" =>
       )
   ))
 )
---------------------------------------------------------------------
 ```
 
 ### NginX
@@ -423,11 +450,9 @@ configurations. For example:
 Simply run the MyServer configuration and in the MIME section, choose the .fcgi extension
 and select:
 ```
---------------------------------------------------------------------
 MIME Type: application octet-stream
 Action: Execute self contained FastCGI
 Manager: NONE 
---------------------------------------------------------------------
 ```
 
 

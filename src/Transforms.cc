@@ -479,7 +479,7 @@ void filter_cmap( RawTile& in, std::string cmap ){
     for ( unsigned int n = 0; n < ndata;  n += in_chan, outv += 3 ) {
       value = fptr[n];
       for ( i = 0; i < out_chan; i++ )
-        outv[i] = colormap[static_cast<int>(round((double) value * (double) lut)) * out_chan + i];
+        outv[i] = colormap[static_cast<int>(round((double) value * (double) (lut - 1))) * out_chan + i];
     }
 
     // Delete
@@ -649,7 +649,6 @@ void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, uns
 void filter_contrast( RawTile& in, float c ){
 
   unsigned long np = in.width * in.height * in.channels;
-  //TODO unsigned int np = ((long)in.dataLength * 8) / in.bpc;
 
   unsigned char* buffer = new unsigned char[np];
   float* infptr = (float*)in.data;
