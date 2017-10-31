@@ -22,6 +22,9 @@
 
 #include <cmath>
 #include "Transforms.h"
+#include "Tokenizer.h"
+#include <fstream>
+#include <iostream>
 
 
 // Define something similar to C99 std::isfinite if this does not exist
@@ -416,6 +419,9 @@ void filter_cmap( RawTile& in, std::string cmap ){
     }
   }
   else if ( cmap == "red" ) {
+#if defined(__ICC) || defined(__INTEL_COMPILER)
+#pragma ivdep
+#endif
     for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ) {
       value = fptr[n];
       outv[0] = value;
@@ -423,6 +429,9 @@ void filter_cmap( RawTile& in, std::string cmap ){
     }
   }
   else if ( cmap == "green" ) {
+#if defined(__ICC) || defined(__INTEL_COMPILER)
+#pragma ivdep
+#endif
     for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ) {
       value = fptr[n];
       outv[0] = outv[2] = 0.;
@@ -430,6 +439,9 @@ void filter_cmap( RawTile& in, std::string cmap ){
     }
   }
   else if ( cmap == "blue" ) {
+#if defined(__ICC) || defined(__INTEL_COMPILER)
+#pragma ivdep
+#endif
     for( unsigned int n=0; n<ndata; n+=in_chan, outv+=3 ) {
       value = fptr[n];
       outv[0] = outv[1] = 0;
@@ -437,7 +449,42 @@ void filter_cmap( RawTile& in, std::string cmap ){
     }
   }
   else {
+    // Custom colormap
+    ifstream infile;
+    string line, token;
+    int i = 0, j, lut = 0;
+    float *colormap;
 
+    // Get LUT size
+    infile = ifstream(cmap.c_str());
+    while (getline(infile, line))
+      ++lut;
+
+    colormap = new float[lut * out_chan];
+    infile = ifstream(cmap.c_str());
+    while (getline(infile, line) && i < lut) {
+      Tokenizer izer( line, ":" );
+      j = 0;
+      while (izer.hasMoreTokens() && j < out_chan) {
+        token = izer.nextToken();
+        colormap[i*out_chan + j] = stof(token);
+        j++;
+      }
+      i++;
+    }
+
+#if defined(__ICC) || defined(__INTEL_COMPILER)
+#pragma ivdep
+#endif
+    for ( unsigned int n = 0; n < ndata;  n += in_chan, outv += 3 ) {
+      value = fptr[n];
+      for ( i = 0; i < out_chan; i++ )
+        outv[i] = colormap[static_cast<int>(round((double) value * (double) lut)) * out_chan + i];
+    }
+
+    // Delete
+    infile.close();
+    delete[] colormap;
   }
 
   // Delete old data buffer
