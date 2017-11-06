@@ -50,6 +50,7 @@ void CVT::send( Session* session ){
   // Set up our output format handler
   Compressor *compressor = NULL;
   if( session->view->output_format == JPEG ) compressor = session->jpeg;
+  else if ( session->view->output_format == RAW ) compressor = session->raw;
   else return;
 
 
@@ -261,13 +262,23 @@ void CVT::send( Session* session ){
 
 
     // Apply any contrast adjustments and/or clip from 16bit or 32bit to 8bit
-    {
-      if( session->loglevel >= 5 ) function_timer.start();
-      filter_contrast( complete_image, session->view->getContrast() );
-      if( session->loglevel >= 5 ){
-	*(session->logfile) << "CVT :: Applying contrast of " << session->view->getContrast()
-			    << " and converting to 8bit in " << function_timer.getTime() << " microseconds" << endl;
-      }
+    if( session->loglevel >= 5 ) function_timer.start();
+    filter_contrast( complete_image, session->view->getContrast() );
+    if( session->loglevel >= 5 ){
+  *(session->logfile) << "CVT :: Applying contrast of " << session->view->getContrast()
+        << " in " << function_timer.getTime() << " microseconds" << endl;
+    }
+  }
+
+
+
+  if( session->view->output_format != RAW ) {
+    if( session->loglevel >=5 ) function_timer.start();
+    int b = 8;
+    filter_clip( complete_image, b );
+    if( session->loglevel >= 5 ){
+      *(session->logfile) << "CVT :: Converting to " << b << "bit in "
+                          << function_timer.getTime() << " microseconds" << endl;
     }
   }
 
@@ -340,7 +351,7 @@ void CVT::send( Session* session ){
 
     if( session->loglevel >= 5 ){
       string direction = session->view->flip==1 ? "horizontally" : "vertically";
-      *(session->logfile) << "JTL :: Flipping image " << direction << " in "
+      *(session->logfile) << "CVT :: Flipping image " << direction << " in "
 			  << function_timer.getTime() << " microseconds" << endl;
     }
   }

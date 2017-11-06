@@ -520,22 +520,52 @@ void filter_inv( RawTile& in ){
 void filter_interpolate_nearestneighbour( RawTile& in, unsigned int resampled_width, unsigned int resampled_height ){
 
   // Pointer to input buffer
-  unsigned char *input = (unsigned char*) in.data;
+  unsigned int *iinput = NULL;
+  unsigned short *sinput = NULL;
+  unsigned char *cinput = NULL;
 
+  int bpc = in.bpc;
   int channels = in.channels;
   unsigned int width = in.width;
   unsigned int height = in.height;
 
   // Pointer to output buffer
-  unsigned char *output;
+  unsigned int *ioutput = NULL;
+  unsigned short *soutput = NULL;
+  unsigned char *coutput = NULL;
 
-  // Create new buffer if size is larger than input size
   bool new_buffer = false;
-  if( resampled_width*resampled_height > in.width*in.height ){
-    new_buffer = true;
-    output = new unsigned char[resampled_width*resampled_height*in.channels];
+
+  if (bpc == 32) {
+    iinput = (unsigned int*) in.data;
+
+    // Create new buffer if size is larger than input size
+    if( resampled_width*resampled_height > in.width*in.height ){
+      new_buffer = true;
+      ioutput = new unsigned int[resampled_width*resampled_height*in.channels];
+    }
+    else ioutput = (unsigned int*) in.data;
   }
-  else output = (unsigned char*) in.data;
+  else if (bpc == 16) {
+    sinput = (unsigned short*) in.data;
+
+    // Create new buffer if size is larger than input size
+    if( resampled_width*resampled_height > in.width*in.height ){
+      new_buffer = true;
+      soutput = new unsigned short[resampled_width*resampled_height*in.channels];
+    }
+    else soutput = (unsigned short*) in.data;
+  }
+  else {
+    cinput = (unsigned char*) in.data;
+
+    // Create new buffer if size is larger than input size
+    if( resampled_width*resampled_height > in.width*in.height ){
+      new_buffer = true;
+      coutput = new unsigned char[resampled_width*resampled_height*in.channels];
+    }
+    else coutput = (unsigned char*) in.data;
+  }
 
   // Calculate our scale
   float xscale = (float)width / (float)resampled_width;
@@ -552,19 +582,28 @@ void filter_interpolate_nearestneighbour( RawTile& in, unsigned int resampled_wi
 
       unsigned int resampled_index = (i + j*resampled_width)*channels;
       for( int k=0; k<in.channels; k++ ){
-	output[resampled_index+k] = input[pyramid_index+k];
+        if (bpc == 32) ioutput[resampled_index+k] = iinput[pyramid_index+k];
+        else if (bpc == 16) soutput[resampled_index+k] = sinput[pyramid_index+k];
+        else coutput[resampled_index+k] = cinput[pyramid_index+k];
       }
     }
   }
 
   // Delete original buffer
-  if( new_buffer ) delete[] (unsigned char*) input;
+  if( new_buffer ) {
+    if (bpc == 32) delete[] iinput;
+    else if (bpc == 16) delete[] sinput;
+    else delete[] cinput;
+  }
 
   // Correctly set our Rawtile info
   in.width = resampled_width;
   in.height = resampled_height;
   in.dataLength = resampled_width * resampled_height * channels * in.bpc/8;
-  in.data = output;
+
+  if (bpc == 32) in.data = ioutput;
+  else if (bpc == 16) in.data = soutput;
+  else in.data = coutput;
 }
 
 
@@ -574,19 +613,36 @@ void filter_interpolate_nearestneighbour( RawTile& in, unsigned int resampled_wi
 void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, unsigned int resampled_height ){
 
   // Pointer to input buffer
-  unsigned char *input = (unsigned char*) in.data;
+  unsigned int *iinput = NULL;
+  unsigned short *sinput = NULL;
+  unsigned char *cinput = NULL;
 
+  int bpc = in.bpc;
   int channels = in.channels;
   unsigned int width = in.width;
   unsigned int height = in.height;
 
   // Create new buffer and pointer for our output
-  unsigned char *output = new unsigned char[resampled_width*resampled_height*in.channels];
+  unsigned int *ioutput = NULL;
+  unsigned short *soutput = NULL;
+  unsigned char *coutput = NULL;
 
   // Calculate our scale
   float xscale = (float)(width) / (float)resampled_width;
   float yscale = (float)(height) / (float)resampled_height;
 
+  if (bpc == 32) {
+    iinput = (unsigned int*) in.data;
+    ioutput = new unsigned int[resampled_width*resampled_height*in.channels];
+  }
+  else if (bpc == 16) {
+    sinput = (unsigned short*) in.data;
+    soutput = new unsigned short[resampled_width*resampled_height*in.channels];
+  }
+  else {
+    cinput = (unsigned char*) in.data;
+    coutput = new unsigned char[resampled_width*resampled_height*in.channels];
+  }
 
   // Do not parallelize for small images (256x256 pixels) as this can be slower that single threaded
 #if defined(__ICC) || defined(__INTEL_COMPILER)
@@ -624,28 +680,51 @@ void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, uns
       // Output buffer index
       unsigned int resampled_index = j*resampled_width*in.channels + i*in.channels;
 
-      for( int k=0; k<in.channels; k++ ){
-	float tx = input[p11+k]*a + input[p21+k]*b;
-	float ty = input[p12+k]*a + input[p22+k]*b;
-	unsigned char r = (unsigned char)( c*tx + d*ty );
-	output[resampled_index+k] = r;
+      if (bpc == 32) {
+        for( int k=0; k<in.channels; k++ ){
+          float tx = iinput[p11+k]*a + iinput[p21+k]*b;
+          float ty = iinput[p12+k]*a + iinput[p22+k]*b;
+          unsigned int r = (unsigned int)( c*tx + d*ty );
+          ioutput[resampled_index+k] = r;
+        }
+      }
+      else if (bpc == 16) {
+        for( int k=0; k<in.channels; k++ ){
+          float tx = sinput[p11+k]*a + sinput[p21+k]*b;
+          float ty = sinput[p12+k]*a + sinput[p22+k]*b;
+          unsigned short r = (unsigned short)( c*tx + d*ty );
+          soutput[resampled_index+k] = r;
+        }
+      }
+      else {
+        for( int k=0; k<in.channels; k++ ){
+          float tx = cinput[p11+k]*a + cinput[p21+k]*b;
+          float ty = cinput[p12+k]*a + cinput[p22+k]*b;
+          unsigned char r = (unsigned char)( c*tx + d*ty );
+          coutput[resampled_index+k] = r;
+        }
       }
     }
   }
 
   // Delete original buffer
-  delete[] (unsigned char*) input;
+  if (bpc == 32) delete[] iinput;
+  else if (bpc == 16) delete[] sinput;
+  else delete[] cinput;
 
   // Correctly set our Rawtile info
   in.width = resampled_width;
   in.height = resampled_height;
   in.dataLength = resampled_width * resampled_height * channels * in.bpc/8;
-  in.data = output;
+
+  if (bpc == 32) in.data = ioutput;
+  else if (bpc == 16) in.data = soutput;
+  else in.data = coutput;
 }
 
 
 
-// Function to apply a contrast adjustment and clip to 8 bit
+// Function to apply a contrast adjustment
 void filter_contrast( RawTile& in, float c ){
 
   unsigned long np = in.width * in.height * in.channels;
@@ -659,14 +738,66 @@ void filter_contrast( RawTile& in, float c ){
 #pragma omp parallel for
 #endif
   for( unsigned long n=0; n<np; n++ ){
-    float v = infptr[n] * 255.0 * c;
-    buffer[n] = (unsigned char)( (v<255.0) ? (v<0.0? 0.0 : v) : 255.0 );
+    float v = infptr[n];
+    infptr[n] = v * c;
+  }
+}
+
+
+//  Function to clip data to b bit
+void filter_clip( RawTile& in, unsigned int b ) {
+  unsigned long np = in.width * in.height * in.channels;
+  float* infptr = (float*)in.data;
+  float maxvalue = pow(2, b);
+  void* vbuffer;
+
+  if ( b > 16) {
+    unsigned int* buffer = new unsigned int[np];
+
+#if defined(__ICC) || defined(__INTEL_COMPILER)
+#pragma ivdep
+#elif defined(_OPENMP)
+#pragma omp parallel for
+#endif
+    for( unsigned long n=0; n<np; n++ ){
+      float v = infptr[n] * maxvalue;
+      buffer[n] = (unsigned int)( (v<maxvalue) ? (v<0.0? 0.0 : v) : maxvalue );
+    }
+    vbuffer = buffer;
+  }
+  else if ( b > 8 ) {
+    unsigned short* buffer = new unsigned short[np];
+
+#if defined(__ICC) || defined(__INTEL_COMPILER)
+#pragma ivdep
+#elif defined(_OPENMP)
+#pragma omp parallel for
+#endif
+    for( unsigned long n=0; n<np; n++ ){
+      float v = infptr[n] * maxvalue;
+      buffer[n] = (unsigned short)( (v<maxvalue) ? (v<0.0? 0.0 : v) : maxvalue );
+    }
+    vbuffer = buffer;
+  }
+  else {
+    unsigned char* buffer = new unsigned char[np];
+
+#if defined(__ICC) || defined(__INTEL_COMPILER)
+#pragma ivdep
+#elif defined(_OPENMP)
+#pragma omp parallel for
+#endif
+    for( unsigned long n=0; n<np; n++ ){
+      float v = infptr[n] * maxvalue;
+      buffer[n] = (unsigned char)( (v<maxvalue) ? (v<0.0? 0.0 : v) : maxvalue );
+    }
+    vbuffer = buffer;
   }
 
   // Replace original buffer with new
   delete[] (float*) in.data;
-  in.data = buffer;
-  in.bpc = 8;
+  in.data = vbuffer;
+  in.bpc = b;
   in.dataLength = np * in.bpc/8;
 }
 
@@ -864,11 +995,29 @@ void filter_flatten( RawTile& in, int bands ){
   unsigned int gap = in.channels - bands;
 
   // Simply loop through assigning to the same buffer
-  for( unsigned long i=0; i<np; i++ ){
-    for( int k=0; k<bands; k++ ){
-      ((unsigned char*)in.data)[ni++] = ((unsigned char*)in.data)[no++];
+  if (in.bpc == 32) {
+    for( unsigned long i=0; i<np; i++ ){
+      for( int k=0; k<bands; k++ ){
+        ((unsigned int*)in.data)[ni++] = ((unsigned int*)in.data)[no++];
+      }
+      no += gap;
     }
-    no += gap;
+  }
+  else if (in.bpc == 16) {
+    for( unsigned long i=0; i<np; i++ ){
+      for( int k=0; k<bands; k++ ){
+        ((unsigned short*)in.data)[ni++] = ((unsigned short*)in.data)[no++];
+      }
+      no += gap;
+    }
+  }
+  else {
+    for( unsigned long i=0; i<np; i++ ){
+      for( int k=0; k<bands; k++ ){
+        ((unsigned char*)in.data)[ni++] = ((unsigned char*)in.data)[no++];
+      }
+      no += gap;
+    }
   }
 
   in.channels = bands;

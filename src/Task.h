@@ -35,6 +35,8 @@
 #include "Writer.h"
 #include "Cache.h"
 #include "Watermark.h"
+#include "RawCompressor.h"
+
 #ifdef HAVE_PNG
 #include "PNGCompressor.h"
 #endif
@@ -64,6 +66,7 @@ typedef HASHMAP <std::string,IIPImage> imageCacheMapType;
 /// Structure to hold our session data
 struct Session {
   IIPImage **image;
+  RawCompressor* raw;
   JPEGCompressor* jpeg;
 #ifdef HAVE_PNG
   PNGCompressor* png;

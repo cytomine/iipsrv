@@ -59,11 +59,18 @@ void filter_shade( RawTile& in, int h_angle, int v_angle );
 void filter_LAB2sRGB( RawTile& in );
 
 
-/// Function to apply a contrast adjustment and clip to 8 bit
+/// Function to apply a contrast adjustment
 /** @param in tile data to be adjusted
     @param c contrast value
 */
 void filter_contrast( RawTile& in, float c );
+
+
+/// Function to clip data to b bit
+/** @param in tile data to be adjusted
+ *  @param b number of bits
+ */
+void filter_clip( RawTile& in, const unsigned int b );
 
 
 /// Apply a gamma correction
