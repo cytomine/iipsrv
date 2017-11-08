@@ -34,7 +34,7 @@
 enum ColourSpaces { NONE, GREYSCALE, sRGB, CIELAB };
 
 /// Compression Types
-enum CompressionType { UNCOMPRESSED, JPEG, DEFLATE, PNG, RAW };
+enum CompressionType { UNCOMPRESSED, JPEG, DEFLATE, PNG, TIFF_ };
 
 /// Sample Types
 enum SampleType { FIXEDPOINT, FLOATINGPOINT };

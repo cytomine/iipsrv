@@ -291,6 +291,10 @@ int main( int argc, char *argv[] )
   bool embed_icc = Environment::getEmbedICC();
 
 
+  // Get the default compression scheme for TIFF
+  int tiff_compression = Environment::getTIFFCompressionType();
+
+
   // Print out some information
   if( loglevel >= 1 ){
     logfile << "Setting maximum image cache size to " << max_image_cache_size << "MB" << endl;
@@ -507,6 +511,8 @@ int main( int argc, char *argv[] )
     //  so that we can close the image on exceptions
     IIPImage *image = NULL;
     JPEGCompressor jpeg( jpeg_quality );
+    TIFFCompressor tiff( tiff_compression );
+    RawCompressor raw;
 
 
     // View object for use with the CVT command etc
@@ -532,6 +538,8 @@ int main( int argc, char *argv[] )
       session.response = &response;
       session.view = &view;
       session.jpeg = &jpeg;
+      session.tiff = &tiff;
+      session.raw = &raw;
       session.loglevel = loglevel;
       session.logfile = &logfile;
       session.imageCache = &imageCache;

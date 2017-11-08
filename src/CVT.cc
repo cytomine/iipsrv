@@ -50,7 +50,8 @@ void CVT::send( Session* session ){
   // Set up our output format handler
   Compressor *compressor = NULL;
   if( session->view->output_format == JPEG ) compressor = session->jpeg;
-  else if ( session->view->output_format == RAW ) compressor = session->raw;
+  else if ( session->view->output_format == TIFF_ ) compressor = session->tiff;
+  else if ( session->view->output_format == UNCOMPRESSED ) compressor = session->raw;
   else return;
 
 
@@ -193,7 +194,7 @@ void CVT::send( Session* session ){
     }
   }
 
-
+  unsigned int original_bpc = complete_image.bpc;
 
   // Only use our floating point pipeline if necessary
   if( complete_image.bpc > 8 || session->view->floatProcessing() ){
@@ -268,13 +269,10 @@ void CVT::send( Session* session ){
   *(session->logfile) << "CVT :: Applying contrast of " << session->view->getContrast()
         << " in " << function_timer.getTime() << " microseconds" << endl;
     }
-  }
 
 
-
-  if( session->view->output_format != RAW ) {
     if( session->loglevel >=5 ) function_timer.start();
-    int b = 8;
+    unsigned int b = ( session->view->output_format != UNCOMPRESSED ) ? 8 : original_bpc;
     filter_clip( complete_image, b );
     if( session->loglevel >= 5 ){
       *(session->logfile) << "CVT :: Converting to " << b << "bit in "
@@ -405,7 +403,8 @@ void CVT::send( Session* session ){
 
 
   // Initialise our output compression object
-  compressor->InitCompression( complete_image, resampled_height );
+  unsigned int strip_height = 128;
+  compressor->InitCompression( complete_image, strip_height );
 
 
   len = compressor->getHeaderSize();
@@ -437,15 +436,15 @@ void CVT::send( Session* session ){
   // Send out the data per strip of fixed height.
   // Allocate enough memory for this plus an extra 64k for instances where compressed
   // data is greater than uncompressed
-  unsigned int strip_height = 128;
   unsigned int channels = complete_image.channels;
-  unsigned char* output = new unsigned char[resampled_width*channels*strip_height+65536];
+  unsigned int bytes_pp = complete_image.bpc / 8;
+  unsigned char* output = new unsigned char[bytes_pp*resampled_width*channels*strip_height+65536];
   int strips = (resampled_height/strip_height) + (resampled_height%strip_height == 0 ? 0 : 1);
 
   for( int n=0; n<strips; n++ ){
 
     // Get the starting index for this strip of data
-    unsigned char* input = &((unsigned char*)complete_image.data)[n*strip_height*resampled_width*channels];
+    unsigned char* input = &((unsigned char*)complete_image.data)[n*strip_height*bytes_pp*resampled_width*channels];
 
     // The last strip may have a different height
     if( (n==strips-1) && (resampled_height%strip_height!=0) ) strip_height = resampled_height % strip_height;
@@ -461,35 +460,41 @@ void CVT::send( Session* session ){
       *(session->logfile) << "CVT :: Compressed data strip length is " << len << endl;
     }
 
+    if ( session->view->output_format != TIFF_ && session->view->output_format != UNCOMPRESSED) {
 #ifdef CHUNKED
-    // Send chunk length in hex
-    snprintf( str, 1024, "%X\r\n", len );
-    if( session->loglevel >= 4 ) *(session->logfile) << "CVT :: Chunk : " << str;
-    session->out->printf( str );
+      // Send chunk length in hex
+      snprintf( str, 1024, "%X\r\n", len );
+      if( session->loglevel >= 4 ) *(session->logfile) << "CVT :: Chunk : " << str;
+      session->out->printf( str );
 #endif
 
-    // Send this strip out to the client
-    if( len != session->out->putStr( (const char*) output, len ) ){
-      if( session->loglevel >= 1 ){
-	*(session->logfile) << "CVT :: Error writing strip: " << len << endl;
+      // Send this strip out to the client
+      if( len != session->out->putStr( (const char*) output, len ) ){
+        if( session->loglevel >= 1 ){
+          *(session->logfile) << "CVT :: Error writing strip: " << len << endl;
+        }
       }
-    }
 
 #ifdef CHUNKED
-    // Send closing chunk CRLF
-    session->out->printf( "\r\n" );
+      // Send closing chunk CRLF
+      session->out->printf( "\r\n" );
 #endif
 
-    // Flush our block of data
-    if( session->out->flush() == -1 ) {
-      if( session->loglevel >= 1 ){
-	*(session->logfile) << "CVT :: Error flushing data" << endl;
+      // Flush our block of data
+      if( session->out->flush() == -1 ) {
+        if( session->loglevel >= 1 ){
+          *(session->logfile) << "CVT :: Error flushing data" << endl;
+        }
       }
-    }
 
+    }
   }
 
   // Finish off the image compression
+  if (session->view->output_format == TIFF_ || session->view->output_format == UNCOMPRESSED) {
+    delete[] output;
+    output = new unsigned char[bytes_pp*resampled_width*channels*resampled_height+655360];
+  }
   len = compressor->Finish( output );
 
 #ifdef CHUNKED

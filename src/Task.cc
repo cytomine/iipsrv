@@ -171,17 +171,20 @@ void CVT::run( Session* session, const string& src ){
   string argument = src;
   transform( argument.begin(), argument.end(), argument.begin(), ::tolower );
 
-  // For the moment, only deal with JPEG and RAW data (array of bytes).
+  // For the moment, only deal with JPEG and TIFF.
   // If we have specified something else, give a warning
   // and send JPEG anyway
-  if ( argument == "raw" ) {
-    session->view->output_format = RAW;
-    if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: RAW output" << endl;
+  if ( argument == "tiff" ) {
+    session->view->output_format = TIFF_;
+    if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: TIFF output" << endl;
   }
-  else if( argument != "jpeg" ){
-    if( session->loglevel >= 1 ) *(session->logfile) << "CVT :: Unsupported request: '" << argument << "'. Sending JPEG." << endl;
+  else if ( argument == "raw" ) {
+    session->view->output_format = UNCOMPRESSED;
+    if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: UNCOMPRESSED output" << endl;
   }
-  else{
+  else {
+    if( argument != "jpeg" && session->loglevel >= 1 )
+      *(session->logfile) << "CVT :: Unsupported request: '" << argument << "'. Sending JPEG." << endl;
     session->view->output_format = JPEG;
     if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: JPEG output" << endl;
   }
