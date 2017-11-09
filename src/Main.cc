@@ -295,6 +295,16 @@ int main( int argc, char *argv[] )
   int tiff_compression = Environment::getTIFFCompressionType();
 
 
+#ifdef HAVE_PNG
+  // Get PNG Compression Level
+  int png_compression_level = Environment::getPNGCompressionLevel();
+
+
+  // Get PNG Filter Type
+  int png_filter_type = Environment::getPNGFilterType();
+#endif
+
+
   // Print out some information
   if( loglevel >= 1 ){
     logfile << "Setting maximum image cache size to " << max_image_cache_size << "MB" << endl;
@@ -513,6 +523,9 @@ int main( int argc, char *argv[] )
     JPEGCompressor jpeg( jpeg_quality );
     TIFFCompressor tiff( tiff_compression );
     RawCompressor raw;
+#ifdef HAVE_PNG
+    PNGCompressor png( png_compression_level, png_filter_type );
+#endif
 
 
     // View object for use with the CVT command etc
@@ -540,6 +553,9 @@ int main( int argc, char *argv[] )
       session.jpeg = &jpeg;
       session.tiff = &tiff;
       session.raw = &raw;
+#ifdef HAVE_PNG
+      session.png = &png;
+#endif
       session.loglevel = loglevel;
       session.logfile = &logfile;
       session.imageCache = &imageCache;

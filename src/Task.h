@@ -342,5 +342,12 @@ class CTW : public Task {
 };
 
 
+/// Output bit Command
+class BIT : public Task {
+ public:
+  void run( Session* session, const std::string& argument );
+};
+
+
 
 #endif

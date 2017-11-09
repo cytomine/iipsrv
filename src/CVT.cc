@@ -51,7 +51,10 @@ void CVT::send( Session* session ){
   Compressor *compressor = NULL;
   if( session->view->output_format == JPEG ) compressor = session->jpeg;
   else if ( session->view->output_format == TIFF_ ) compressor = session->tiff;
-  else if ( session->view->output_format == UNCOMPRESSED ) compressor = session->raw;
+//  else if ( session->view->output_format == UNCOMPRESSED ) compressor = session->raw;
+#ifdef HAVE_PNG
+  else if ( session->view->output_format == PNG ) compressor = session->png;
+#endif
   else return;
 
 
@@ -272,7 +275,16 @@ void CVT::send( Session* session ){
 
 
     if( session->loglevel >=5 ) function_timer.start();
-    unsigned int b = ( session->view->output_format != UNCOMPRESSED ) ? 8 : original_bpc;
+    unsigned int b = 8;
+    if ( session->view->output_format == TIFF_ ) {
+      b = (original_bpc < session->view->output_bpc) ? original_bpc : session->view->output_bpc;
+    }
+#ifdef HAVE_PNG
+    else if ( session->view->output_format == PNG ) {
+      b = (session->view->output_bpc <= 16) ? session->view->output_bpc : 16;
+      b = (original_bpc < b) ? original_bpc : b;
+    }
+#endif
     filter_clip( complete_image, b );
     if( session->loglevel >= 5 ){
       *(session->logfile) << "CVT :: Converting to " << b << "bit in "
@@ -460,7 +472,7 @@ void CVT::send( Session* session ){
       *(session->logfile) << "CVT :: Compressed data strip length is " << len << endl;
     }
 
-    if ( session->view->output_format != TIFF_ && session->view->output_format != UNCOMPRESSED) {
+    if ( session->view->output_format != TIFF_) {
 #ifdef CHUNKED
       // Send chunk length in hex
       snprintf( str, 1024, "%X\r\n", len );
@@ -491,9 +503,9 @@ void CVT::send( Session* session ){
   }
 
   // Finish off the image compression
-  if (session->view->output_format == TIFF_ || session->view->output_format == UNCOMPRESSED) {
+  if (session->view->output_format == TIFF_) {
     delete[] output;
-    output = new unsigned char[bytes_pp*resampled_width*channels*resampled_height+655360];
+    output = new unsigned char[8*bytes_pp*resampled_width*channels*resampled_height+65536];
   }
   len = compressor->Finish( output );
 

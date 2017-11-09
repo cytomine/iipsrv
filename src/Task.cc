@@ -64,6 +64,7 @@ Task* Task::factory( const string& t ){
   else if( type == "lyr" ) return new LYR;
   else if( type == "deepzoom" ) return new DeepZoom;
   else if( type == "ctw" ) return new CTW;
+  else if( type == "bit" ) return new BIT;
   else if( type == "iiif" ) return new IIIF;
   else return NULL;
 
@@ -178,10 +179,16 @@ void CVT::run( Session* session, const string& src ){
     session->view->output_format = TIFF_;
     if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: TIFF output" << endl;
   }
-  else if ( argument == "raw" ) {
-    session->view->output_format = UNCOMPRESSED;
-    if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: UNCOMPRESSED output" << endl;
+//  else if ( argument == "raw" ) {
+//    session->view->output_format = UNCOMPRESSED;
+//    if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: UNCOMPRESSED output" << endl;
+//  }
+#ifdef HAVE_PNG
+  else if ( argument == "png" ) {
+    session->view->output_format = PNG;
+    if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: PNG output" << endl;
   }
+#endif
   else {
     if( argument != "jpeg" && session->loglevel >= 1 )
       *(session->logfile) << "CVT :: Unsupported request: '" << argument << "'. Sending JPEG." << endl;
@@ -472,4 +479,25 @@ void CTW::run( Session* session, const string& argument ){
     }
   }
 
+}
+
+
+void BIT::run( Session *session, const std::string &argument ) {
+  if( argument.length() ){
+
+    int factor = atoi( argument.c_str() );
+
+    if( session->loglevel >= 2 ) *(session->logfile) << "BIT handler reached" << endl;
+    if( session->loglevel >= 3 ) *(session->logfile) << "BIT :: requested output bits per channel is " << factor << endl;
+
+    // Check the value is realistic
+    if( factor != 8 && factor != 16 && factor != 32 ){
+      if( session->loglevel >= 2 ){
+        *(session->logfile) << "BIT :: Output bits requested " << argument
+                            << " forbidden. Must be 8/16/32." << endl;
+      }
+    }
+
+    session->view->output_bpc = factor;
+  }
 }

@@ -9,10 +9,11 @@
 
 typedef struct {
   unsigned char *data;
-  tsize_t size;
+  tsize_t mx;
   tsize_t incsiz;
   tsize_t flen;
-  toff_t fptr;
+  tsize_t previous;
+  toff_t size;
   int strip;
   TIFF *tiff;
 } tiff_mem;

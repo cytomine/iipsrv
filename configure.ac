@@ -316,23 +316,22 @@ fi
 #     Check for PNG support
 #************************************************************
 
-#AC_CHECK_HEADERS( png.h,
-#	AC_SEARCH_LIBS(
-#		png_create_read_struct,
-#		png,
-#		PNG=true,
-#		PNG=false )
-#)
+AC_CHECK_HEADERS( png.h,
+	AC_SEARCH_LIBS(
+		png_create_read_struct,
+		png,
+		PNG=true,
+		PNG=false )
+)
 
-# Disable PNG for now
-#PNG=false
+# PNG=false
 
-#if test "x${PNG}" = xtrue; then
-#	AM_CONDITIONAL([ENABLE_PNG], [true])
-#	AC_DEFINE(HAVE_PNG)
-#else
-#	AM_CONDITIONAL([ENABLE_PNG], [false])
-#fi
+if test "x${PNG}" = xtrue; then
+	AM_CONDITIONAL([ENABLE_PNG], [true])
+	AC_DEFINE(HAVE_PNG)
+else
+	AM_CONDITIONAL([ENABLE_PNG], [false])
+fi
 
 
 
@@ -405,8 +404,8 @@ Options Enabled:
  Memcached :  ${MEMCACHED}
  JPEG2000  :  ${JPEG2000_CODEC}
  OpenMP    :  ${OPENMP}
+ PNG       :  ${PNG}
 ])
 
-# PNG Output:			${PNG}
 # LitleCMS:			${LCMS}
 #])

@@ -76,8 +76,8 @@ class View{
   bool cmapped;                               /// Whether to modify colormap
   std::string cmap;                           /// colormap
   bool inverted;                              /// Whether to invert colormap
-  int max_layers;			      /// Maximum number of quality layers allowed
-  int layers;			              /// Number of quality layers
+  int max_layers;			                        /// Maximum number of quality layers allowed
+  int layers;			                            /// Number of quality layers
   ColourSpaces colourspace;                   /// Requested colourspace
   std::vector< std::vector<float> > ctw;      /// Colour twist matrix
   int flip;                                   /// Flip (1=horizontal, 2=vertical)
@@ -85,6 +85,7 @@ class View{
   bool allow_upscaling;                       /// Indicate whether images may be served larger than the source file
   bool embed_icc;                             /// Indicate whether we should embed ICC profiles
   CompressionType output_format;              /// Requested output format
+  unsigned int output_bpc;                    /// Requested output bit per channels
 
 
   /// Constructor
@@ -106,6 +107,7 @@ class View{
     colourspace = NONE;
     embed_icc = true;
     output_format = JPEG;
+    output_bpc = 8;
   };
 
 
