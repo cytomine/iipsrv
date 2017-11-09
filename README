@@ -12,15 +12,17 @@ well as advanced image features such as 8, 16 and 32 bits per channel, CIELAB co
 
 See https://github.com/ruven/iipsrv for the official version.
 
-This fork was made to add support for the OpenSlide librairy (http://openslide.org/).
-By this way, iipsrv support more image formats as ndpi, mrax, svs, etc.
+This fork was made to add support for the OpenSlide library (http://openslide.org/).
+By this way, iipsrv natively supports more image formats as ndpi, mrax, svs, etc.
+Also, we added a custom color mapping mechanism and the possibility to export regions
+of images in TIFF, with the initial bit depth.
 
 FEATURES
 --------
 * Fast lightweight embeddable FastCGI server module
 * High performance with inbuilt configurable cache
 * Support for gigapixel images
-* Dynamic JPEG export of whole or regions of images at any resolution
+* Dynamic JPEG, PNG and TIFF export of whole or regions of images at any resolution
 * Supports IIP, Zoomify, DeepZoom and IIIF protocols
 * 1, 8, 16 and 32 bit image support including 32 bit floating point support
 * CIELAB support with automatic CIELAB->sRGB colour space conversion
@@ -32,7 +34,7 @@ FEATURES
 * Dynamic hillshading of 3D surface topologies
 * Dynamic decoder module capability
 * Openslide support
-
+* Custom color mapping
 
 DOCUMENTATION
 -------------
@@ -55,7 +57,7 @@ Must be the last command.
 
 | Command | Usage | Description |
 | ------- | ----| ---- |
-| CVT | `CVT=f` | Return the full image or a region, in `f` format, only `jpeg` supported.  |
+| CVT | `CVT=f` | Return the full image or a region, in `f` format, only `jpeg`, `png`, `tiff` supported.  |
 | JTL | `JTL=r,n` | Return a tile with index `n` at resolution level `r`, in JPEG format |
 | PFL | `PFL=r:x1,y1-x2,y2` | Export profile at resolution `r` from position `(x1,y1)` to `(x2,y2)`. Only horizontal or vertical profiles are currently supported |
 | SPECTRA | `SPECTRA=r,t,x,y` | Return pixel values in all image channels for a particular point `(x,y)` on tile `t` at resolution `r` in XML format. |
@@ -73,6 +75,7 @@ Must be the last command.
 | ROT | `ROT=r` | Rotate the image by `r`|
 | QLT | `QLT=q` | JPEG quality factor `q` between 0 (worst) and 100 (best) |
 | MINMAX | `MINMAX=c:min,max` | Set minimum `min` and maximum `max` for channel `c`|
+| BIT | `BIT=b` | Output bit depth `b` (8 for JPEG, 8/16 for PNG, 8/16/32 for TIFF) |
 
 
 
@@ -127,7 +130,7 @@ environment using autogen.sh:
 
 Then, execute the following commands :
 
-    LDFLAGS="-L/usr/local/lib -lopenslide" CPPFLAGS="-I/usr/local/include/openslide" ./configure
+    ./configure
     make
 
 OPTIONAL LIBRARIES: MEMCACHED

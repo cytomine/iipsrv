@@ -24,7 +24,10 @@
 #include "URL.h"
 #include "Environment.h"
 #include "TPTImage.h"
+
+#ifdef HAVE_OPENSLIDE
 #include "OpenSlideImage.h"
+#endif
 
 #ifdef HAVE_KAKADU
 #include "KakaduImage.h"
@@ -136,10 +139,12 @@ void FIF::run( Session* session, const string& src ){
       if( session->loglevel >= 2 ) *(session->logfile) << "FIF :: TIFF image detected" << endl;
       *session->image = new TPTImage( test );
     }
+#ifdef HAVE_OPENSLIDE
     else if ( format == OPENSLIDE ) {
       if( session->loglevel >= 2 ) *(session->logfile) << "FIF :: OpenSlide image detected" << endl;
       *session->image = new OpenSlideImage( test );
     }
+#endif
 #if defined(HAVE_KAKADU) || defined(HAVE_OPENJPEG)
     else if( format == JPEG2000 ){
       if( session->loglevel >= 2 )

@@ -334,6 +334,30 @@ else
 fi
 
 
+#************************************************************
+#     Check for OpenSlide support
+#************************************************************
+AC_LANG([C])
+AC_CHECK_HEADERS( openslide/openslide.h,
+	AC_SEARCH_LIBS(
+		openslide_open,
+		openslide,
+		OPENSLIDE=true,
+		OPENSLIDE=false )
+)
+
+# OPENSLIDE=false
+
+if test "x${OPENSLIDE}" = xtrue; then
+	AM_CONDITIONAL([ENABLE_OPENSLIDE], [true])
+	AC_DEFINE(HAVE_OPENSLIDE)
+else
+	AM_CONDITIONAL([ENABLE_OPENSLIDE], [false])
+fi
+
+
+
+
 
 #************************************************************
 #     FCGI library configure
@@ -405,6 +429,7 @@ Options Enabled:
  JPEG2000  :  ${JPEG2000_CODEC}
  OpenMP    :  ${OPENMP}
  PNG       :  ${PNG}
+ OpenSlide :  ${OPENSLIDE}
 ])
 
 # LitleCMS:			${LCMS}

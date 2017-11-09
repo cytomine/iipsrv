@@ -16,11 +16,13 @@
 
 
 extern "C" {
-#include "openslide.h"
-#include "openslide-features.h"
+#include "openslide/openslide.h"
+#include "openslide/openslide-features.h"
 }
 
 #define TILESIZE 256
+
+const std::string OPENSLIDE_EXTENSIONS[] = {"svs", "vms", "vmu", "ndpi", "mrxs", "scn", "vtif", "bif"};
 
 /// Image class for OpenSlide supported Images: Inherits from IIPImage. Uses the OpenSlide library.
 class OpenSlideImage : public IIPImage {

@@ -23,6 +23,10 @@
 
 #include "IIPImage.h"
 
+#ifdef HAVE_OPENSLIDE
+#include "OpenSlideImage.h"
+#endif
+
 #ifdef HAVE_GLOB_H
 #include <glob.h>
 #endif
@@ -113,16 +117,18 @@ void IIPImage::testImageType() throw(file_error)
     isFile = true;
     timestamp = sb.st_mtime;
 
+#ifdef HAVE_OPENSLIDE
     // Dirty hack to detect OpenSlide format, since some formats have same file signatures
     // than TIFF.
     int dot = imagePath.find_last_of( '.' );
     suffix = imagePath.substr( dot + 1, imagePath.length() );
     transform( suffix.begin(), suffix.end(), suffix.begin(), ::tolower );
-    if (suffix == "svs" || suffix == "vms" || suffix == "vmu" || suffix == "ndpi"
-        || suffix == "mrxs" || suffix == "scn" || suffix == "vtif" || suffix == "bif") {
+    if (find(begin(OPENSLIDE_EXTENSIONS), end(OPENSLIDE_EXTENSIONS), suffix) != end(OPENSLIDE_EXTENSIONS)) {
       format = OPENSLIDE;
     }
-    else {
+    else
+#endif
+    {
       // Magic file signature for JPEG2000
       static const unsigned char j2k[10] = {0x00,0x00,0x00,0x0C,0x6A,0x50,0x20,0x20,0x0D,0x0A};
 

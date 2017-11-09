@@ -5,9 +5,8 @@ noinst_PROGRAMS =	iipsrv.fcgi
 
 INCLUDES =		@INCLUDES@ @LIBFCGI_INCLUDES@ @JPEG_INCLUDES@ @TIFF_INCLUDES@
 
-LIBS =			@LIBS@ @LIBFCGI_LIBS@ @DL_LIBS@ @JPEG_LIBS@ @TIFF_LIBS@ -lm -lm -lopenslide
-AM_LDFLAGS =		@LIBFCGI_LDFLAGS@
-AM_CPPFLAGS = -I/usr/local/include/openslide
+LIBS =			@LIBS@ @LIBFCGI_LIBS@ @DL_LIBS@ @JPEG_LIBS@ @TIFF_LIBS@ -lm
+AM_LDFLAGS =	@LIBFCGI_LDFLAGS@
 
 iipsrv_fcgi_LDADD = Main.o
 
@@ -23,19 +22,21 @@ if ENABLE_PNG
 iipsrv_fcgi_LDADD += PNGCompressor.o #PTL.o
 endif
 
+if ENABLE_OPENSLIDE
+iipsrv_fcgi_LDADD += OpenSlideImage.o
+endif
+
 if ENABLE_MODULES
 iipsrv_fcgi_LDADD += DSOImage.o
 endif
 
-EXTRA_iipsrv_fcgi_SOURCES = DSOImage.h DSOImage.cc KakaduImage.h KakaduImage.cc Main.cc OpenJPEGImage.h OpenJPEGImage.cc PNGCompressor.h PNGCompressor.cc
+EXTRA_iipsrv_fcgi_SOURCES = DSOImage.h DSOImage.cc KakaduImage.h KakaduImage.cc Main.cc OpenJPEGImage.h OpenJPEGImage.cc PNGCompressor.h PNGCompressor.cc OpenSlideImage.h OpenSlideImage.cc
 
 iipsrv_fcgi_SOURCES = \
 			IIPImage.h \
 			IIPImage.cc \
 			TPTImage.h \
 			TPTImage.cc \
-			OpenSlideImage.h \
-			OpenSlideImage.cc \
 			Compressor.h \
 			JPEGCompressor.h \
 			JPEGCompressor.cc \
