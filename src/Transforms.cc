@@ -726,6 +726,7 @@ void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, uns
 
 // Function to apply a contrast adjustment
 void filter_contrast( RawTile& in, float c ){
+  if (c == 1.0) return;
 
   unsigned long np = in.width * in.height * in.channels;
 
