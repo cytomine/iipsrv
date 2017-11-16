@@ -1,14 +1,14 @@
 /*  IIP Server: Kakadu JPEG2000 handler
 
 
-    Development supported by Moravian Library in Brno (Moravska zemska
+    Initial development supported by Moravian Library in Brno (Moravska zemska
     knihovna v Brne, http://www.mzk.cz/) R&D grant MK00009494301 & Old
     Maps Online (http://www.oldmapsonline.org/) from the Ministry of
     Culture of the Czech Republic.
 
 
-    Copyright (C) 2009-2013 IIPImage.
-    Authors: Ruven Pillay & Petr Pridal
+    Copyright (C) 2009-2017 IIPImage.
+    Author: Ruven Pillay
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -57,12 +57,8 @@ unsigned int get_nprocs_conf(){
 
 using namespace std;
 
-#ifdef DEBUG
-extern std::ofstream logfile;
-#endif
 
-
-void KakaduImage::openImage() throw (string)
+void KakaduImage::openImage() throw (file_error)
 {
   string filename = getFileName( currentX, currentY );
 
@@ -84,12 +80,19 @@ void KakaduImage::openImage() throw (string)
     if( jpx_input.open( &src, false ) != 1 ) throw 1;
   }
   catch (...){
-    throw string( "Kakadu :: Unable to open '"+filename+"'"); // Rethrow the exception
+    throw file_error( "Kakadu :: Unable to open '"+filename+"'"); // Rethrow the exception
   }
 
+
   // Get our JPX codestream
-  jpx_stream = jpx_input.access_codestream(0);
-  if( !jpx_stream.exists() ) throw string( "Kakadu :: No codestream in file '"+filename+"'"); // Throw exception
+  try{
+    jpx_stream = jpx_input.access_codestream(0);
+    if( !jpx_stream.exists() ) throw 1;
+  }
+  catch (...){
+    throw file_error( "Kakadu :: No codestream in file '"+filename+"'"); // Rethrow exception
+  }
+
 
   // Open the underlying JPEG2000 codestream
   input = NULL;
@@ -97,7 +100,7 @@ void KakaduImage::openImage() throw (string)
 
   // Create codestream
   codestream.create(input);
-  if( !codestream.exists() ) throw string( "Kakadu :: Unable to create codestream for '"+filename+"'"); // Throw exception
+  if( !codestream.exists() ) throw file_error( "Kakadu :: Unable to create codestream for '"+filename+"'"); // Throw exception
 
   // Set up the cache size and allow restarting
   //codestream.augment_cache_threshold(1024);
@@ -106,7 +109,7 @@ void KakaduImage::openImage() throw (string)
   //  codestream.enable_restart();
 
   // Load our metadata if not already loaded
-  if( bpp == 0 ) loadImageInfo( currentX, currentY );
+  if( bpc == 0 ) loadImageInfo( currentX, currentY );
 
 #ifdef DEBUG
   logfile << "Kakadu :: openImage() :: " << timer.getTime() << " microseconds" << endl;
@@ -115,33 +118,41 @@ void KakaduImage::openImage() throw (string)
 }
 
 
-void KakaduImage::loadImageInfo( int seq, int ang ) throw(string)
+void KakaduImage::loadImageInfo( int seq, int ang ) throw(file_error)
 {
   jp2_channels j2k_channels;
   jp2_palette j2k_palette;
   jp2_resolution j2k_resolution;
   jp2_colour j2k_colour;
   kdu_coords layer_size;
+  jpx_layer_source jpx_layer;
 
-  jpx_layer_source jpx_layer = jpx_input.access_layer(0);
+  // Malformed images can throw exceptions here with older versions of Kakadu 
+  try{
+    jpx_layer = jpx_input.access_layer(0);
+  }
+  catch( ... ){
+    throw file_error( "Kakadu :: Core Exception Caught During Metadata Extraction"); // Rethrow the exception
+  }
 
   j2k_channels = jpx_layer.access_channels();
   j2k_resolution = jpx_layer.access_resolution();
   j2k_colour = jpx_layer.access_colour(0);
   layer_size = jpx_layer.get_layer_size();
 
-  int cmp, plt, stream_id;
-  j2k_channels.get_colour_mapping(0,cmp,plt,stream_id);
-  j2k_palette = jpx_stream.access_palette();
-
   image_widths.push_back(layer_size.x);
   image_heights.push_back(layer_size.y);
-  channels = j2k_channels.get_num_colours();
+  channels = codestream.get_num_components();
   numResolutions = codestream.get_min_dwt_levels();
-  bpp = codestream.get_bit_depth(0,true);
+  bpc = codestream.get_bit_depth(0,true);
 
   unsigned int w = layer_size.x;
   unsigned int h = layer_size.y;
+
+#ifdef DEBUG
+  logfile << "Kakadu :: DWT Levels: " << numResolutions << endl;
+  logfile << "Kakadu :: Resolution : " << w << "x" << h << endl;
+#endif
 
   // Loop through each resolution and calculate the image dimensions - 
   // We calculate ourselves rather than relying on get_dims() to force a similar
@@ -178,7 +189,6 @@ void KakaduImage::loadImageInfo( int seq, int ang ) throw(string)
     }
   }
 
-
   if( n > numResolutions ){
 #ifdef DEBUG
     logfile << "Kakadu :: Warning! Insufficient resolution levels in JPEG2000 stream. Will generate " << n-numResolutions << " extra levels dynamically -" << endl
@@ -186,16 +196,55 @@ void KakaduImage::loadImageInfo( int seq, int ang ) throw(string)
 #endif
   }
 
-  if( n > numResolutions+1 ) virtual_levels = n-numResolutions-1;
+  if( n > numResolutions ) virtual_levels = n-numResolutions-1;
   numResolutions = n;
+
+
+  // Check for a palette and LUT - only used for bilevel images for now
+  int cmp, plt, stream_id,format=0;
+#if defined(KDU_MAJOR_VERSION) && (KDU_MAJOR_VERSION >= 7) && (KDU_MINOR_VERSION >= 8)
+  // API change for get_colour_mapping in Kakadu 7.8
+  j2k_channels.get_colour_mapping(0,cmp,plt,stream_id,format);
+#else
+  j2k_channels.get_colour_mapping(0,cmp,plt,stream_id);
+#endif
+
+  j2k_palette = jpx_stream.access_palette();
+
+  if( j2k_palette.exists() && j2k_palette.get_num_luts()>0 ){
+    int entries = j2k_palette.get_num_entries();
+    float *lt = new float[entries];
+    j2k_palette.get_lut(0,lt);    // Note that we extract only first LUT
+    // Force to unsigned format, scale to 8 bit and load these into our LUT vector
+    for( int n=0; n<entries; n++ ){
+      lut.push_back((int)((lt[n]+0.5)*255));
+    }
+    delete[] lt;
+#ifdef DEBUG
+    logfile << "Kakadu :: Palette with " << j2k_palette.get_num_luts() << " LUT and " << entries
+	    << " entries/LUT with values " << lut[0] << "," << lut[1] << endl;
+#endif
+  }
+
+
+  // Extract any ICC profile and add it to our metadata map
+  int icc_length = 0;
+  const char* icc = (const char*) j2k_colour.get_icc_profile( &icc_length );
+  if( icc_length > 0 ) metadata["icc"] = string( icc, icc_length );
 
 
   // Set our colour space - we let Kakadu automatically handle CIELAB->sRGB conversion for the time being
   if( channels == 1 ) colourspace = GREYSCALE;
   else{
     jp2_colour_space cs = j2k_colour.get_space();
-    if( cs == JP2_sRGB_SPACE || cs == JP2_CIELab_SPACE ) colourspace = sRGB;
+    if( cs == JP2_sRGB_SPACE || cs == JP2_iccRGB_SPACE || cs == JP2_esRGB_SPACE || cs == JP2_CIELab_SPACE ) colourspace = sRGB;
     //else if ( cs == JP2_CIELab_SPACE ) colourspace = CIELAB;
+    else {
+#ifdef DEBUG
+    	logfile << "WARNING : colour space not found, setting sRGB colour space value" << endl;
+#endif
+    	colourspace = sRGB;
+    }
   }
 
 
@@ -218,18 +267,21 @@ void KakaduImage::loadImageInfo( int seq, int ang ) throw(string)
       cs = j2k_colour.get_space();
       break;
   }
-  logfile << "Kakadu :: " << bpp << " bit data" << endl
+  logfile << "Kakadu :: " << bpc << " bit data" << endl
 	  << "Kakadu :: " << channels << " channels" << endl
 	  << "Kakadu :: colour space: " << cs << endl
 	  << "Kakadu :: " << quality_layers << " quality layers detected" << endl;
 #endif
   kt.close();
 
+  // For bilevel images, force channels to 1 as we sometimes come across such images which claim 3 channels
+  if( bpc == 1 ) channels = 1;
+
   // Get the max and min values for our data type
   //double sminvalue[4], smaxvalue[4];
   for( unsigned int i=0; i<channels; i++ ){
     min.push_back( 0.0 );
-    if( bpp == 16 ) max.push_back( 65535.0 );
+    if( bpc > 8 && bpc <= 16 ) max.push_back( 65535.0 );
     else max.push_back( 255.0 );
   }
 
@@ -259,13 +311,13 @@ void KakaduImage::closeImage()
 
 
 // Get an invidual tile
-RawTile KakaduImage::getTile( int seq, int ang, unsigned int res, int layers, unsigned int tile ) throw (string)
+RawTile KakaduImage::getTile( int seq, int ang, unsigned int res, int layers, unsigned int tile ) throw (file_error)
 {
 
   // Scale up our output bit depth to the nearest factor of 8
-  unsigned obpp = bpp;
-  if( bpp <= 16 && bpp > 8 ) obpp = 16;
-  else if( bpp <= 8 ) obpp = 8;
+  unsigned obpc = bpc;
+  if( bpc <= 16 && bpc > 8 ) obpc = 16;
+  else if( bpc <= 8 ) obpc = 8;
 
 #ifdef DEBUG
   Timer timer;
@@ -274,8 +326,8 @@ RawTile KakaduImage::getTile( int seq, int ang, unsigned int res, int layers, un
 
   if( res > numResolutions ){
     ostringstream tile_no;
-    tile_no << "Kakadu :: Asked for non-existant resolution: " << res;
-    throw tile_no.str();
+    tile_no << "Kakadu :: Asked for non-existent resolution: " << res;
+    throw file_error( tile_no.str() );
   }
 
   int vipsres = ( numResolutions - 1 ) - res;
@@ -295,8 +347,8 @@ RawTile KakaduImage::getTile( int seq, int ang, unsigned int res, int layers, un
 
   if( tile >= ntlx*ntly ){
     ostringstream tile_no;
-    tile_no << "Kakadu :: Asked for non-existant tile: " << tile;
-    throw tile_no.str();
+    tile_no << "Kakadu :: Asked for non-existent tile: " << tile;
+    throw file_error( tile_no.str() );
   }
 
   // Alter the tile size if it's in the last column
@@ -320,15 +372,15 @@ RawTile KakaduImage::getTile( int seq, int ang, unsigned int res, int layers, un
 
 
   // Create our Rawtile object and initialize with data
-  RawTile rawtile( tile, res, seq, ang, tw, th, channels, obpp );
+  RawTile rawtile( tile, res, seq, ang, tw, th, channels, obpc );
 
 
   // Create our raw tile buffer and initialize some values
-  if( obpp == 16 ) rawtile.data = new unsigned short[tw*th*channels];
-  else if( obpp == 8 ) rawtile.data = new unsigned char[tw*th*channels];
-  else throw string( "Kakadu :: Unsupported number of bits" );
+  if( obpc == 16 ) rawtile.data = new unsigned short[tw*th*channels];
+  else if( obpc == 8 ) rawtile.data = new unsigned char[tw*th*channels];
+  else throw file_error( "Kakadu :: Unsupported number of bits" );
 
-  rawtile.dataLength = tw*th*channels*obpp/8;
+  rawtile.dataLength = tw*th*channels*obpc/8;
   rawtile.filename = getImagePath();
   rawtile.timestamp = timestamp;
 
@@ -347,25 +399,25 @@ RawTile KakaduImage::getTile( int seq, int ang, unsigned int res, int layers, un
 
 
 // Get an entire region and not just a tile
-RawTile KakaduImage::getRegion( int seq, int ang, unsigned int res, int layers, int x, int y, unsigned int w, unsigned int h ) throw (string)
+RawTile KakaduImage::getRegion( int seq, int ang, unsigned int res, int layers, int x, int y, unsigned int w, unsigned int h ) throw (file_error)
 {
   // Scale up our output bit depth to the nearest factor of 8
-  unsigned int obpp = bpp;
-  if( bpp <= 16 && bpp > 8 ) obpp = 16;
-  else if( bpp <= 8 ) obpp = 8;
+  unsigned int obpc = bpc;
+  if( bpc <= 16 && bpc > 8 ) obpc = 16;
+  else if( bpc <= 8 ) obpc = 8;
 
 #ifdef DEBUG
   Timer timer;
   timer.start();
 #endif
 
-  RawTile rawtile( 0, res, seq, ang, w, h, channels, obpp );
+  RawTile rawtile( 0, res, seq, ang, w, h, channels, obpc );
 
-  if( obpp == 16 ) rawtile.data = new unsigned short[w*h*channels];
-  else if( obpp == 8 ) rawtile.data = new unsigned char[w*h*channels];
-  else throw string( "Kakadu :: Unsupported number of bits" );
+  if( obpc == 16 ) rawtile.data = new unsigned short[w*h*channels];
+  else if( obpc == 8 ) rawtile.data = new unsigned char[w*h*channels];
+  else throw file_error( "Kakadu :: Unsupported number of bits" );
 
-  rawtile.dataLength = w*h*channels*obpp/8;
+  rawtile.dataLength = w*h*channels*obpc/8;
   rawtile.filename = getImagePath();
   rawtile.timestamp = timestamp;
 
@@ -381,23 +433,26 @@ RawTile KakaduImage::getRegion( int seq, int ang, unsigned int res, int layers, 
 
 
 // Main processing function
-void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffset, unsigned int tw, unsigned int th, void *d ) throw (string)
+void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffset, unsigned int tw, unsigned int th, void *d ) throw (file_error)
 {
   // Scale up our output bit depth to the nearest factor of 8
-  unsigned int obpp = bpp;
-  if( bpp <= 16 && bpp > 8 ) obpp = 16;
-  else if( bpp <= 8 ) obpp = 8;
+  unsigned int obpc = bpc;
+  if( bpc <= 16 && bpc > 8 ) obpc = 16;
+  else if( bpc <= 8 ) obpc = 8;
 
   int vipsres = ( numResolutions - 1 ) - res;
 
   // Handle virtual resolutions
   if( res < virtual_levels ){
-    unsigned int factor = 2*(virtual_levels-res);
+    unsigned int factor = 1 << (virtual_levels-res);
     xoffset *= factor;
     yoffset *= factor;
     tw *= factor;
     th *= factor;
-    vipsres = numResolutions - 1 - (virtual_levels-res);
+    vipsres = numResolutions - 1 - virtual_levels;
+#ifdef DEBUG
+  logfile << "Kakadu :: using smallest existing resolution " << virtual_levels << endl;
+#endif
   }
 
   // Set the number of layers to half of the number of detected layers if we have not set the
@@ -415,7 +470,7 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
   canvas_dims.size = kdu_coords( tw, th );
 
   // Check our codestream status - throw exception for malformed codestreams
-  if( !codestream.exists() ) throw string( "Kakadu :: Malformed JPEG2000 - unable to access codestream");
+  if( !codestream.exists() ) throw file_error( "Kakadu :: Malformed JPEG2000 - unable to access codestream");
 
   // Apply our resolution restrictions to calculate the rendering zone on the highest resolution
   // canvas
@@ -454,7 +509,6 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
   void *stripe_buffer = NULL;
   int *stripe_heights = NULL;
 
-
   try{
 
     // Note that we set max channels rather than leave the default to strip off alpha channels
@@ -476,7 +530,6 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
     logfile << "Kakadu :: About to pull stripes" << endl;
 #endif
 
-
     int index = 0;
     bool continues = true;
 
@@ -490,27 +543,59 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
 #endif
 
     // Create our buffers
-    if( obpp == 16 ){
+
+    if( obpc == 16 ){
       stripe_buffer = new kdu_uint16[tw*stripe_heights[0]*channels];
       buffer = new unsigned short[tw*th*channels];
     }
-    else if( obpp == 8 ){
+    else if( obpc == 8 ){
       stripe_buffer = new kdu_byte[tw*stripe_heights[0]*channels];
       buffer = new unsigned char[tw*th*channels];
     }
 
+    // Keep track of changes in stripe heights
+    int previous_stripe_heights = stripe_heights[0];
+
 
     while( continues ){
+
 
       decompressor.get_recommended_stripe_heights( comp_dims.size.y,
 						   1024, stripe_heights, NULL );
 
-      if( obpp == 16 ){
+
+      // If we have a larger stripe height, allocate new memory for this
+      if( stripe_heights[0] > previous_stripe_heights ){
+
+	// First delete then re-allocate our buffers
+	delete_buffer( stripe_buffer );
+	if( obpc == 16 ){
+	  stripe_buffer = new kdu_uint16[tw*stripe_heights[0]*channels];
+	}
+	else if( obpc == 8 ){
+	  stripe_buffer = new kdu_byte[tw*stripe_heights[0]*channels];
+	}
+
+#ifdef DEBUG
+	logfile << "Kakadu :: Stripe height increase: re-allocating memory for height " << stripe_heights[0] << endl;
+#endif
+      }
+
+      // Check for zero height, which can occur with incorrect position or size parameters
+      if( stripe_heights[0] == 0 ){
+#ifdef DEBUG
+	logfile << "Kakadu :: Error: Zero stripe height" << endl;
+#endif
+	throw 1;
+      }
+
+
+      if( obpc == 16 ){
 	// Set these to false to get unsigned 16 bit values
 	bool s[3] = {false,false,false};
 	continues = decompressor.pull_stripe( (kdu_int16*) stripe_buffer, stripe_heights, NULL, NULL, NULL, NULL, s );
       }
-      else if( obpp == 8 ){
+      else if( obpc == 8 ){
 	continues = decompressor.pull_stripe( (kdu_byte*) stripe_buffer, stripe_heights, NULL, NULL, NULL );
       }
 
@@ -521,25 +606,39 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
 
       // Copy the data into the supplied buffer
       void *b1, *b2;
-      if( obpp == 16 ){
+      if( obpc == 16 ){
 	b1 = &( ((kdu_uint16*)stripe_buffer)[0] );
 	b2 = &( ((unsigned short*)buffer)[index] );
       }
-      else if( obpp == 8 ){
+      else{ // if( obpc == 8 ){
 	b1 = &( ((kdu_byte*)stripe_buffer)[0] );
 	b2 = &( ((unsigned char*)buffer)[index] );
-	if( bpp == 1 ){
-	  // Expand bilevel images to full 8 bit range
-	  // - ideally we would do this in the Kakadu pull_stripe function,
-	  // but the precisions parameter seems not to work as expected
+
+	/* Handle 1 bit bilevel images, which we output scaled to 8 bits
+	   - ideally we would do this in the Kakadu pull_stripe function,
+	   but the precisions parameter seems not to work as expected.
+	   When requesting OUTPUT_COMPONENTS, data is provided as 0 or 128,
+	   so simply scale this up to [0,255]
+	*/
+	if( bpc == 1 ){
+
 	  unsigned int k = tw * stripe_heights[0] * channels;
-	  for( unsigned int n=0; n<k; n++ ){
-	    ((kdu_byte*)stripe_buffer)[n] =  255 - (-((kdu_byte*)stripe_buffer)[n] >> 16);
+
+	  // Deal with inverted LUTs - we should really handle LUTs more generally, however
+	  if( !lut.empty() && lut[0]>lut[1] ){
+	    for( unsigned int n=0; n<k; n++ ){
+	      ((kdu_byte*)stripe_buffer)[n] =  ~(-((kdu_byte*)stripe_buffer)[n] >> 8);
+	    }
+	  }
+	  else{
+	    for( unsigned int n=0; n<k; n++ ){
+	      ((kdu_byte*)stripe_buffer)[n] =  (-((kdu_byte*)stripe_buffer)[n] >> 8);
+	    }
 	  }
 	}
       }
 
-      memcpy( b2, b1, tw * stripe_heights[0] * channels * obpp/8 );
+      memcpy( b2, b1, tw * stripe_heights[0] * channels * obpc/8 );
 
       // Advance our output buffer pointer
       index += tw * stripe_heights[0] * channels;
@@ -552,7 +651,7 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
 
 
     if( !decompressor.finish() ){
-      throw( "Kakadu :: Error indicated by finish()" );
+      throw file_error( "Kakadu :: Error indicated by finish()" );
     }
 
 
@@ -560,26 +659,26 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
     if( res < virtual_levels ){
 
 #ifdef DEBUG
-      logfile << "Kakadu :: resizing tile to virtual resolution" << endl;
+      logfile << "Kakadu :: resizing tile to virtual resolution with factor " << (1 << (virtual_levels-res)) << endl;
 #endif
 
       unsigned int n = 0;
-      unsigned int factor = 2*(virtual_levels-res);
+      unsigned int factor = 1 << (virtual_levels-res);
       for( unsigned int j=0; j<th; j+=factor ){
 	for( unsigned int i=0; i<tw; i+=factor ){
 	  for( unsigned int k=0; k<channels; k++ ){
 	    // Handle 16 and 8 bit data
-	    if( obpp==16 ){
+	    if( obpc==16 ){
 	      ((unsigned short*)d)[n++] = ((unsigned short*)buffer)[j*tw*channels + i*channels + k];
 	    }
-	    else if( obpp==8 ){
+	    else if( obpc==8 ){
 	      ((unsigned char*)d)[n++] = ((unsigned char*)buffer)[j*tw*channels + i*channels + k];
 	    }
 	  }
 	}
       }
     }
-    else memcpy( d, buffer, tw*th*channels * obpp/8 );
+    else memcpy( d, buffer, tw*th*channels * obpc/8 );
 
     // Delete our local buffer
     delete_buffer( buffer );
@@ -597,7 +696,7 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
     delete_buffer( stripe_buffer );
     delete_buffer( buffer );
     if( stripe_heights ) delete[] stripe_heights;
-    throw string( "Kakadu :: Core Exception Caught"); // Rethrow the exception
+    throw file_error( "Kakadu :: Core Exception Caught"); // Rethrow the exception
   }
 
 
@@ -614,8 +713,8 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
 // Delete our buffers
 void KakaduImage::delete_buffer( void* buffer ){
   if( buffer ){
-    if( bpp <= 16 && bpp > 8 ) delete[] (kdu_uint16*) buffer;
-    else if( bpp<=8 ) delete[] (kdu_byte*) buffer;
+    if( bpc <= 16 && bpc > 8 ) delete[] (kdu_uint16*) buffer;
+    else if( bpc<=8 ) delete[] (kdu_byte*) buffer;
   }
 
 

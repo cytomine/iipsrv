@@ -1,34 +1,88 @@
 -----------------------------------------------------------------------
        IIPImage - High Resolution Streaming Imaging Server
-	Forked by Cytomine
+	   Forked by Cytomine
 -----------------------------------------------------------------------
 
 
-ABOUT:
+ABOUT
 -----
-IIPImage is an advanced high-performance feature-rich imaging server system for web-based streamed viewing and zooming of ultra high-resolution images.
-It is designed to be fast and bandwidth-efficient with lowhdepths, CIELAB colorimetric images and scientific imagery such as multispectral images, image sequences and 3D surface topologies.
+IIPImage is an advanced high-performance feature-rich image server system for web-based streamed viewing and zooming of ultra high-resolution
+images. It is designed to be fast and bandwidth-efficient with low processor and memory requirements. The system can comfortably handle gigapixel size images as
+well as advanced image features such as 8, 16 and 32 bits per channel, CIELAB colorimetric images and scientific imagery such as multispectral images, image sequences and 3D surface topologies.
 
 See https://github.com/ruven/iipsrv for the official version.
 
-This fork was made to add support for the OpenSlide librairy (http://openslide.org/).
-By this way, iipsrv support more image formats as ndpi, mrax, svs, etc.
+This fork was made to add support for the OpenSlide library (http://openslide.org/).
+By this way, iipsrv natively supports more image formats as ndpi, mrax, svs, etc.
+Also, we added a custom color mapping mechanism and the possibility to export regions
+of images in TIFF, with the initial bit depth.
 
-FEATURES:
--------- 
-* See https://github.com/ruven/iipsrv for the official features.
+FEATURES
+--------
+* Fast lightweight embeddable FastCGI server module
+* High performance with inbuilt configurable cache
+* Support for gigapixel images
+* Dynamic JPEG, PNG and TIFF export of whole or regions of images at any resolution
+* Supports IIP, Zoomify, DeepZoom and IIIF protocols
+* 1, 8, 16 and 32 bit image support including 32 bit floating point support
+* CIELAB support with automatic CIELAB->sRGB colour space conversion
+* JPEG2000 support
+* Multispectral image support
+* Dynamic watermarking
+* Memcached support
+* 3D panoramic views
+* Dynamic hillshading of 3D surface topologies
+* Dynamic decoder module capability
 * Openslide support
+* Custom color mapping
 
-
-DOCUMENTATION:
+DOCUMENTATION
 -------------
 Detailed class descriptions (generated using doxygen) are available in the
 doc subdirectory
 
+### IIP Protocol
+
+#### Input
+Must be the fist command.
+
+| Command | Usage | Description |
+| ------- | ----| ---- |
+| FIF | FIF=/path/image.tif | |
+| Zoomify | Zoomify=/path/image.tif | |
+| Deepzoom | DeepZoom=/path/image.tif.dzi | |
+
+#### Output
+Must be the last command.
+
+| Command | Usage | Description |
+| ------- | ----| ---- |
+| CVT | `CVT=f` | Return the full image or a region, in `f` format, only `jpeg`, `png`, `tiff` supported.  |
+| JTL | `JTL=r,n` | Return a tile with index `n` at resolution level `r`, in JPEG format |
+| PFL | `PFL=r:x1,y1-x2,y2` | Export profile at resolution `r` from position `(x1,y1)` to `(x2,y2)`. Only horizontal or vertical profiles are currently supported |
+| SPECTRA | `SPECTRA=r,t,x,y` | Return pixel values in all image channels for a particular point `(x,y)` on tile `t` at resolution `r` in XML format. |
+
+#### Transformation parameters
+| Command | Usage | Description |
+| ------- | ----| ---- |
+| WID | `WID=w` | Requested export image width `w` in pixels for CVT requests |
+| HEI | `HEI=h` | Requested export image height `h` in pixels for CVT requests |
+| RGN | `RGN=x,y,w,h` | Define a region of interest starting at relative coordinates `(x,y)` with width `w` and height `h`. All values should be in ratios 0-1.0  |
+| CNT | `CNT=c` | Contrast – multiplication of pixel values by factor `c`|
+| GAM | `GAM=g` | Apply gamma correction `g`|
+| CMP | `CMP=s` | Generate colormap using one of the colormap schemes `s`, pre-defined `red`, `green`, `blue`, `hot`, `cold`, `jet`, or customized `/path/colormap.cmap`  |
+| INV | `INV` | Invert image or colormap |
+| ROT | `ROT=r` | Rotate the image by `r`|
+| QLT | `QLT=q` | JPEG quality factor `q` between 0 (worst) and 100 (best) |
+| MINMAX | `MINMAX=c:min,max` | Set minimum `min` and maximum `max` for channel `c`|
+| BIT | `BIT=b` | Output bit depth `b` (8 for JPEG, 8/16 for PNG, 8/16/32 for TIFF) |
 
 
-LICENCE:
+
+
+LICENCE
 -------
+
 iipsrv is released under the GNU General Public License (GPL). See the copyright
 notice COPYING in this directory for licensing details or go to
 http://www.gnu.org/licenses/gpl.html for more details.
@@ -42,35 +96,44 @@ See COPYING.FCGI for licensing information for these libraries.
 
 
 
-REQUIREMENTS:
+REQUIREMENTS
 ------------
 Requirements: openslide, libtiff, zlib and the IJG JPEG development libraries.
-Optional: libmemcached (for Memcached) and Kakadu (for JPEG2000)
+Optional: libmemcached (for Memcached) and Kakadu or OpenJPEG (for JPEG2000).
 
 Plus, of course, an fcgi-enabled web server. The server has been successfully
 tested on the following servers:
-Apache (http://httpd.apache.org),
-Lighttpd (http://www.lighttpd.net)
-IIS (http://www.iis.net)
-MyServer (http://www.myserverproject.net)
+- Apache (http://httpd.apache.org),
+- Lighttpd (http://www.lighttpd.net)
+- IIS (http://www.iis.net)
+- NginX (http://www.nginx.org)
+- MyServer (http://www.myserverproject.net)
+- Java Application Servers (Tomcat, JBoss)
 
 Example server configurations are shown below.
 
 
 
-BUILDING:
--------- 
-First generate the autoconfigure environment using autogen.sh:
-./autogen.sh
+BUILDING
+--------
+The standard autoconf build process should work fine. If you want to allow
+dynamic loading of 3rd party image decoders, use the configure option
+--enable-modules. There is a version of the FCGI development library included
+in this distribution. The configure script will use this bundled version
+unless it detects one already installed. Alternatively, you may specify the
+path using --with-fcgi-incl=<path> and --with-fcgi-lib=<path>.
+
+If this is an SVN or Git development version, first generate the autoconfigure
+environment using autogen.sh:
+
+    ./autogen.sh
 
 Then, execute the following commands :
 
-Otherwise for release versions, use configure directly:
-- LDFLAGS="-L/usr/local/lib -lopenslide" CPPFLAGS="-I/usr/local/include/openslide" ./configure
-- make
+    ./configure
+    make
 
-
-OPTIONAL LIBRARIES: MEMCACHED:
+OPTIONAL LIBRARIES: MEMCACHED
 -----------------------------
 IIPImage is able to use Memcached (http://www.memcached.org), a high-performance,
 distributed memory object caching system. If enabled, IIPImage will cache
@@ -81,18 +144,33 @@ during the build process.
 
 
 
-OPTIONAL LIBRARIES: KAKADU:
+OPTIONAL LIBRARIES: KAKADU
 --------------------------
 IIPImage is able to decode JPEG2000 images via the Kakadu SDK
-(http://www.kakadusoftware.com). This is, however, not open source and will
+(http://www.kakadusoftware.com). This is, however, not open source and you will
 need to purchase a license for the source code. In order to use, first build
-the Kakadu SDK as per the instructions supplied with the SDK. Then, the
+the Kakadu SDK as per the instructions supplied with the SDK. Then, supply the
 following parameters to the ./configure command
---with-kakadu=/path/to/kakadu/distribution
+
+    --with-kakadu=/path/to/kakadu/distribution
 
 
 
-INSTALLATION:
+OPTIONAL LIBRARIES: OPENJPEG
+----------------------------
+
+IIPImage is able to decode JPEG2000 images via the open source OpenJPEG
+library (http://www.openjpeg.org/). This is currently experimental and is
+much slower than Kakadu. It is disabled by default: use --enable-openjpeg
+or provide the path to the source code
+(--with-openjpeg=/path/to/openjpeg/distribution) to enable. If no path is
+given, the default system verson of OpenJPEG will be used if available.
+If Kakadu support has been requested, however, OpenJPEG will be automatically
+disabled.
+
+
+
+INSTALLATION
 ------------
 Simply copy the executable called iipsrv.fcgi in the src subdirectory into
 the web server fcgi directory. If one does not exist, simply create one, called,
@@ -101,7 +179,7 @@ executable.
 
 
 
-CONFIGURATION:
+CONFIGURATION
 -------------
 There are several startup variables that can be passed to the server.
 They are all optional.
@@ -130,14 +208,18 @@ MAX_CVT: Limits the maximum image dimensions in pixels (the WID or HEI
 commands) allowable for dynamic JPEG export via the CVT command. This 
 prevents huge requests from overloading the server. The default is 5000.
 
-MAX_LAYERS: The maximum number of quality layers to decode for images that support 
+ALLOW_UPSCALING: Determines whether an image may be rendered at a size greater
+than that of the source image. A value of 0 will prevent upscaling.
+The default is 1 (upscaling is allowed).
+
+MAX_LAYERS: The maximum number of quality layers to decode for images that support
 progressive quality encoding, such as JPEG2000. Ignored for other file 
 formats. If not set, half of the available quality layers will be decoded by default.
 If set to -1, all the available layers will be decoded by default.
 
 FILENAME_PATTERN: Pattern that follows the name stem for a 3D or multispectral 
 sequence. eg: "_pyr_" for FZ1_pyr_000_090.tif. The default is "_pyr_". This is 
-only relevent to 3D image sequences.
+only relevant to 3D image sequences.
 
 WATERMARK: TIFF image to use as watermark file. This image should be not be 
 bigger the tile size used for TIFF tiling. If bigger, it will simply be 
@@ -160,7 +242,30 @@ INTERPOLATION: Interpolation method to use for rescaling when using image export
 Integer value. 0 for fastest nearest neighbour interpolation. 1 for bilinear
 interpolation (better quality but about 2.5x slower). Bilinear by default.
 
-DECODER_MODULES: Comma separated list of external modules for decoding 
+CORS: Cross Origin Resource Sharing setting. Disabled by default.
+Set to * to enable for all domains or specify a single domain.
+See http://www.w3.org/TR/cors/ for more details on CORS.
+
+BASE_URL: Set a base URL for use in certain protocol requests if web server rewriting
+has taken place and the public URL is not the same as that supplied to iipsrv.
+
+URI_MAP: Set a mapping from a URL prefix to a supported protocol. This enables iipsrv to
+be able to work without requring full CGI query strings. Map must be of the form
+"prefix=>protocol" where prefix can be either empty or any string prefix and protocol must
+be one of IIP,IIIF,DeepZoom, Zoomify. Used, for example, to map requests of the form
+http://server/iiif/ to the IIIF protocol handler without requiring web server rewriting.
+
+CACHE_CONTROL: Set the HTTP Cache-Control header. See http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9 for
+a full list of options. If not set, header defaults to "max-age=86400" (24 hours).
+
+EMBED_ICC: Set whether the ICC profile is embedded within the output image.
+0 to strip profile, 1 to embed profile. The default is 1 (embedded profiles).
+
+OMP_NUM_THREADS: Set the number of OpenMP threads to be used by the iipsrv image
+processing routines (See OpenMP specification for details). All available processor
+threads are used by default.
+
+DECODER_MODULES: Comma separated list of external modules for decoding
 other image formats. This is only necessary if you have activated 
 --enable-modules for ./configure and written your own image format 
 handler(s).
@@ -168,7 +273,7 @@ handler(s).
 
 
 
-IMAGE PATHS:
+IMAGE PATHS
 -----------
 The images paths given to the server via the FIF variable must be
 absolute paths on the server machine (eg. FIF=/images/test.tif) 
@@ -179,14 +284,14 @@ able to access and read the images!
 
 
 
-EXAMPLE SERVER CONFIGURATIONS:
+EXAMPLE SERVER CONFIGURATIONS
 -----------------------------
 
-Apache and mod_fastcgi:
-----------------------
+### Apache and mod_fastcgi
+
 httpd.conf example extract:
 
---------------------------------------------------------------------
+```
 # Create a directory for the iipsrv binary
 ScriptAlias /fcgi-bin/ "/usr/local/httpd/fcgi-bin/"
 
@@ -194,8 +299,15 @@ ScriptAlias /fcgi-bin/ "/usr/local/httpd/fcgi-bin/"
 <Directory "/usr/local/httpd/fcgi-bin">
    AllowOverride None
    Options None
-   Order allow,deny
-   Allow from all
+
+# Syntax for access is different in Apache 2.4 - uncomment appropriate version
+# Apache 2.2
+#   Order allow,deny
+#   Allow from all
+
+# Apache 2.4
+   Require all granted
+
 </Directory>
 
 # Set the module handler
@@ -208,23 +320,25 @@ FastCgiServer /usr/local/httpd/fcgi-bin/iipsrv.fcgi \
 -initial-env MAX_IMAGE_CACHE_SIZE=10 \
 -initial-env FILENAME_PATTERN=_pyr_ \
 -initial-env JPEG_QUALITY=50 \
--initial-env MAX_CVT=3000
---------------------------------------------------------------------
+-initial-env MAX_CVT=3000 \
+-listen-queue-depth 2048 \
+-processes 1
+```
 
 
-
-Apache and mod_fcgid:
---------------------
+### Apache and mod_fcgid
 
 mod_fcgid is a binary compatible replacement for mod_fastcgi. It works in the 
 same way, but is configured differently. Load the module like this:
 
-LoadModule fcgid_module /path/to/apachemodules/mod_fcgid.so
 
-Here is an example configuration. Note that mod_fcgid does not have a 
+    LoadModule fcgid_module /path/to/apachemodules/mod_fcgid.so
+
+
+Here is an example configuration. Note that mod_fcgid does not have a
 FastCgiServer directive and there is no need to explicitly start the server:
 
--------------------------------------------------------------------
+```
 # Create a directory for the iipsrv binary
 ScriptAlias /fcgi-bin/ "/var/www/localhost/fcgi-bin/"
 
@@ -232,8 +346,14 @@ ScriptAlias /fcgi-bin/ "/var/www/localhost/fcgi-bin/"
 <Directory "/var/www/localhost/fcgi-bin/">
    AllowOverride None
    Options None
-   Order allow,deny
-   Allow from all
+
+# Syntax for access is different in Apache 2.4 - uncomment appropriate version
+# Apache 2.2
+#   Order allow,deny
+#   Allow from all
+
+# Apache 2.4
+   Require all granted
 
    # Set the module handler
    AddHandler fcgid-script .fcgi
@@ -250,19 +370,17 @@ FcgidInitialEnv MAX_CVT "3000"
 # processes we want
 FcgidIdleTimeout 0
 FcgidMaxProcessesPerClass 1
-
--------------------------------------------------------------------
+```
 
 Note that on CentOS, FcgidIPCDir is configured by default to 
 /var/log/httpd/fcgidsock, which may not be writable by Apache. If this is the case, 
 specify another location for FcgidIPCDir, which is writable, such as /tmp/fcgidsock
 
 
-Lighttpd:
---------
+### Lighttpd
 lighttpd.conf example extract:
 
---------------------------------------------------------------------
+```
 fastcgi.server = ( "/fcgi-bin/iipsrv.fcgi" =>
   (( "host" => "127.0.0.1",
      "port" => 9000,
@@ -280,39 +398,74 @@ fastcgi.server = ( "/fcgi-bin/iipsrv.fcgi" =>
       )
   ))
 )
---------------------------------------------------------------------
+```
+
+### NginX
+
+iipsrv can also be used with NginX. The one drawback with regards to iipsrv is that it cannot automatically spawn FCGI processes, so you will need to use
+nginx together with spawn-fcgi or start iipsrv from the command line.
+
+To set up nginx with iipsrv add a directive such as this to your nginx configuration, which will forward requests to /fcgi-bin/iipsrv.fcgi to a
+running iipsrv process on port 9000.
+
+```
+location /fcgi-bin/iipsrv.fcgi {
+	fastcgi_pass    localhost:9000;
+	fastcgi_param   PATH_INFO $fastcgi_script_name;
+        fastcgi_param   REQUEST_METHOD $request_method;
+        fastcgi_param   QUERY_STRING $query_string;
+        fastcgi_param   CONTENT_TYPE $content_type;
+        fastcgi_param   CONTENT_LENGTH $content_length;
+        fastcgi_param   SERVER_PROTOCOL $server_protocol;
+        fastcgi_param   REQUEST_URI $request_uri;
+        fastcgi_param   HTTPS $https if_not_empty;
+}
+```
+
+Nginx can also handle load balancing to multiple iipsrv instances, which can be hosted on the same machine on multiple ports or on different hosts.
+For a multiple host configuration, declare the load balancing like this:
+
+```
+upstream iip {
+	server 192.168.0.1:9000;
+	server 192.168.0.2:9000;
+	server 192.168.0.3:9000;
+	server 192.168.0.4:9000;
+}
+```
+
+and change the fastcgi_pass parameter in the above location configuration to point to this instead of a fixed address:
+
+    fastcgi_pass 	iip;
 
 
-spawn-fcgi:
-----------
+### spawn-fcgi
 
 iipsrv can also be used with lighttpd's spawn-fcgi without the need for a 
 full web server. Simply spawn the iipsrv process on the command line. The 
 process can be bound to an IP address and port for backend load-balancing 
 configurations. For example:
 
-spawn-fcgi -f src/iipsrv.fcgi -a 192.168.0.1 -p 9000
+    spawn-fcgi -f src/iipsrv.fcgi -a 192.168.0.1 -p 9000
 
 
-MyServer:
---------
+### MyServer:
 Simply run the MyServer configuration and in the MIME section, choose the .fcgi extension
 and select:
-
---------------------------------------------------------------------
+```
 MIME Type: application octet-stream
 Action: Execute self contained FastCGI
 Manager: NONE 
---------------------------------------------------------------------
+```
 
 
-Java Application Servers (Tomcat, Jetty, JBoss etc)
----------------------------------------------------
+### Java Application Servers (Tomcat, Jetty, JBoss etc)
 
 IIPImage can also be used with Java Application Servers such as Apache Tomcat, JBoss and Jetty. Simply add 
 the JFastCGI jar file to your webapp and add the following to your web.xml configuration file in order to 
 re-route FCGI requests to the IIPImage server on the specified port.
 
+```
 <!-- Gateway Servlet to IIPImage FCGI server -->
 
 <servlet>
@@ -328,32 +481,44 @@ re-route FCGI requests to the IIPImage server on the specified port.
   <servlet-name>fcgi</servlet-name>
   <url-pattern>/cgi-bin/iipsrv.fcgi</url-pattern>
 </servlet-mapping>
+```
 
 You then need to start an instance of the server on the requested port (6667 in this example) using 
-spawn-cgi (see spawn-cgi section above).
+spawn-cgi (see spawn-cgi section above) or on the command line (see below).
 
 
-Command Line:
--------------
+### Command Line
 
-It is also possible to start iipsrv on the command line. For example:
+It is also possible to start iipsrv directly on the command line using the --bind parameter.
+For example:
 
-iipsrv.fcgi --bind 192.168.0.1:9000
+    iipsrv.fcgi --bind 192.168.0.1:9000
 
 where the argument given to bind is the socket on which to listen to FCGI
-requests. Your web server should, therefore, be configured to use this socket.
+requests. Note that these are *not* HTTP requests and iipsrv will still require a web server front-end.
+
+There is additionally a --backlog parameter that is optional and sets the socket backlog value. The backlog value specifies the number of requests can be queued and,
+therefore, increases the number of concurrent connections that iipsrv can handle and is set to 2048 by default. For example:
+
+    iipsrv.fcgi --bind 192.168.0.1:9000 --backlog 1024
+
+Note that the backlog parameter must be specified after the bind parameter and argument.  Note also that this value may be limited by the operating system. On Linux kernels
+< 2.4.25 and Mac OS X, the backlog limit is hard-coded to 128, so any value above this will be limited to 128 by the OS. If you do provide a backlog value, verify whether
+the setting /proc/sys/net/core/somaxconn should be updated.
+
+Your web server should, therefore, be configured to use this address for FastCGI.
 For example with lighttpd:
 
-fastcgi.server = (
-  "/fcgi-bin/iipsrv.fcgi" => (
-        ("host"=>"192.168.0.1", "port"=>9000, "check-local"=>"disable")
-  )
-)
+    fastcgi.server = (
+      "/fcgi-bin/iipsrv.fcgi" => (
+            ("host"=>"192.168.0.1", "port"=>9000, "check-local"=>"disable")
+      )
+    )
 
 
 
+------------------------------------------------------------------------------------
+Please refer to the project site http://iipimage.sourceforge.net for further details
 
----------------------------------------------------------------------------
-Please refer to the project site http://iipimage.sf.net for further details
----------------------------------------------------------------------------
-(c) 2000-2013 Ruven Pillay <ruven@users.sourceforge.net>
+------------------------------------------------------------------------------------
+(c) 2000-2016 Ruven Pillay <ruven@users.sourceforge.net>

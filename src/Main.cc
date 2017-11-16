@@ -1,7 +1,7 @@
 /*
     IIP FCGI server module - Main loop.
 
-    Copyright (C) 2000-2013 Ruven Pillay
+    Copyright (C) 2000-2017 Ruven Pillay
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@
 #include <string>
 #include <utility>
 #include <map>
+#include <algorithm>
 
 #include "TPTImage.h"
 #include "JPEGCompressor.h"
@@ -55,6 +56,9 @@
 #include "DSOImage.h"
 #endif
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 // If necessary, define missing setenv and unsetenv functions
 #ifndef HAVE_SETENV
@@ -75,8 +79,10 @@ static void unsetenv(char *env_name) {
 #endif
 
 
-//#define DEBUG 1
+// Define our default socket backlog
+#define DEFAULT_BACKLOG 2048
 
+//#define DEBUG 1
 
 using namespace std;
 
@@ -199,13 +205,18 @@ int main( int argc, char *argv[] )
       logfile << "No socket specified" << endl << endl;
       exit(1);
     }
-    listen_socket = FCGX_OpenSocket( socket.c_str(), 10 );
+    int backlog = DEFAULT_BACKLOG;
+    if( argv[3] && (string(argv[3]) == "--backlog") ){
+      string bklg = argv[4];
+      if( bklg.length() ) backlog = atoi( bklg.c_str() );
+    }
+    listen_socket = FCGX_OpenSocket( socket.c_str(), backlog );
     if( listen_socket < 0 ){
       logfile << "Unable to open socket '" << socket << "'" << endl << endl;
       exit(1);
     }
     standalone = true;
-    logfile << "Running in standalone mode on socket: " << socket << endl << endl;
+    logfile << "Running in standalone mode on socket: " << socket << " with backlog: " << backlog << endl << endl;
   }
 
   if( FCGX_InitRequest( &request, listen_socket, 0 ) ) return(1);
@@ -255,23 +266,112 @@ int main( int argc, char *argv[] )
 		       Environment::getWatermarkProbability() );
 
 
+  // Get the CORS setting
+  string cors = Environment::getCORS();
+
+
+  // Get any Base URL setting
+  string base_url = Environment::getBaseURL();
+
+
+  // Get requested HTTP Cache-Control setting
+  string cache_control = Environment::getCacheControl();
+
+
+  // Get URI mapping if we are not using query strings
+  string uri_map_string = Environment::getURIMap();
+  map<string,string> uri_map;
+
+
+  // Get the allow upscaling setting
+  bool allow_upscaling = Environment::getAllowUpscaling();
+
+
+  // Get the ICC embedding setting
+  bool embed_icc = Environment::getEmbedICC();
+
+
+  // Get the default compression scheme for TIFF
+  int tiff_compression = Environment::getTIFFCompressionType();
+
+
+#ifdef HAVE_PNG
+  // Get PNG Compression Level
+  int png_compression_level = Environment::getPNGCompressionLevel();
+
+
+  // Get PNG Filter Type
+  int png_filter_type = Environment::getPNGFilterType();
+#endif
+
+
   // Print out some information
   if( loglevel >= 1 ){
     logfile << "Setting maximum image cache size to " << max_image_cache_size << "MB" << endl;
     logfile << "Setting filesystem prefix to '" << filesystem_prefix << "'" << endl;
     logfile << "Setting default JPEG quality to " << jpeg_quality << endl;
     logfile << "Setting maximum CVT size to " << max_CVT << endl;
+    logfile << "Setting HTTP Cache-Control header to '" << cache_control << "'" << endl;
     logfile << "Setting 3D file sequence name pattern to '" << filename_pattern << "'" << endl;
+    if( !cors.empty() ) logfile << "Setting Cross Origin Resource Sharing to '" << cors << "'" << endl;
+    if( !base_url.empty() ) logfile << "Setting base URL to '" << base_url << "'" << endl;
     if( max_layers != 0 ){
       logfile << "Setting max quality layers (for supported file formats) to ";
       if( max_layers < 0 ) logfile << "all layers" << endl;
       else logfile << max_layers << endl;
     }
+    logfile << "Setting Allow Upscaling to " << (allow_upscaling? "true" : "false") << endl;
+    logfile << "Setting ICC profile embedding to " << (embed_icc? "true" : "false") << endl;
 #ifdef HAVE_KAKADU
     logfile << "Setting up JPEG2000 support via Kakadu SDK" << endl;
+#elif defined(HAVE_OPENJPEG)
+    logfile << "Setting up JPEG2000 support via OpenJPEG" << endl;
+#endif
+#ifdef _OPENMP
+    int num_threads = 0;
+#pragma omp parallel
+    {
+      num_threads = omp_get_num_threads();
+    }
+    if( num_threads > 1 ) logfile << "OpenMP enabled for parallelized image processing with " << num_threads << " threads" << endl;
 #endif
   }
 
+
+  // Setup our URI mapping for non-CGI requests
+  if( !uri_map_string.empty() ){
+
+    // Check map is well-formed: maps must be of the form "prefix=>protocol"
+    size_t pos;
+    if( (pos = uri_map_string.find("=>")) != string::npos ){
+
+      // Extract protocol
+      string prefix = uri_map_string.substr( 0, pos );
+      string protocol = uri_map_string.substr( pos+2 );
+      bool supported_protocol = false;
+
+      // Make sure the command is one of our supported protocols: "IIP", "IIIF", "Zoomify", "DeepZoom"
+      string prtcl = protocol;
+      transform( prtcl.begin(), prtcl.end(), prtcl.begin(), ::tolower );
+      if( prtcl == "iip" || prtcl == "iiif" || prtcl == "zoomify" || prtcl == "deepzoom" ){
+	supported_protocol = true;
+      }
+
+      if( loglevel > 0 ){
+	logfile << "Setting URI mapping to " << uri_map_string << ". "
+		<< ((supported_protocol)?"S":"Uns") << "upported protocol: " << protocol << endl;
+      }
+
+      // IIP protocol requires "FIF" as first argument
+      if( prtcl == "iip" ) prtcl = "fif";
+
+      // Initialize our map
+      if( supported_protocol ) uri_map[prefix] = prtcl;
+    }
+    else if( loglevel > 0 ) logfile << "Malformed URI map: " << uri_map_string << endl;
+
+  }
+  
 
   // Try to load our watermark
   if( watermark.getImage().length() > 0 ){
@@ -421,44 +521,29 @@ int main( int argc, char *argv[] )
     //  so that we can close the image on exceptions
     IIPImage *image = NULL;
     JPEGCompressor jpeg( jpeg_quality );
+    TIFFCompressor tiff( tiff_compression );
+    RawCompressor raw;
+#ifdef HAVE_PNG
+    PNGCompressor png( png_compression_level, png_filter_type );
+#endif
 
 
     // View object for use with the CVT command etc
     View view;
-    if( max_CVT != -1 ){
-      view.setMaxSize( max_CVT );
-      if( loglevel >= 2 ) logfile << "CVT maximum viewport size set to " << max_CVT << endl;
-    }
+    if( max_CVT != -1 ) view.setMaxSize( max_CVT );
     if( max_layers != 0 ) view.setMaxLayers( max_layers );
-
-
+    view.setAllowUpscaling( allow_upscaling );
+    view.setEmbedICC( embed_icc );
 
 
 
     // Create an IIPResponse object - we use this for the OBJ requests.
     // As the commands return images etc, they handle their own responses.
     IIPResponse response;
-
+    response.setCORS( cors );
+    response.setCacheControl( cache_control );
 
     try{
-      
-      // Get the query into a string
-#ifdef DEBUG
-      const string request_string = argv[1];
-#else
-      const string request_string = FCGX_GetParam( "QUERY_STRING", request.envp );
-#endif
-
-      // Check that we actually have a request string
-      if( request_string.length() == 0 ) {
-	throw string( "QUERY_STRING not set" );
-      }
-
-      if( loglevel >=2 ){
-	logfile << "Full Request is " << request_string << endl;
-      }
-
-      
 
       // Set up our session data object
       Session session;
@@ -466,29 +551,107 @@ int main( int argc, char *argv[] )
       session.response = &response;
       session.view = &view;
       session.jpeg = &jpeg;
+      session.tiff = &tiff;
+      session.raw = &raw;
+#ifdef HAVE_PNG
+      session.png = &png;
+#endif
       session.loglevel = loglevel;
       session.logfile = &logfile;
       session.imageCache = &imageCache;
       session.tileCache = &tileCache;
       session.out = &writer;
       session.watermark = &watermark;
-      session.headers.empty();
+      session.headers.clear();
 
-      // Get certain HTTP headers, such as if_modified_since and the query_string
       char* header = NULL;
+      string request_string;
+
+#ifndef DEBUG
+      // If we have a URI prefix mapping, first test for a match between the map prefix string
+      //  and the full REQUEST_URI variable
+      if( !uri_map.empty() ){
+
+	string prefix = uri_map.begin()->first;
+	string command = uri_map.begin()->second;
+
+	header = FCGX_GetParam( "REQUEST_URI", request.envp );
+	const string request_uri = (header!=NULL) ? header : "";
+
+	// Try to find the prefix at the beginning of request URI
+	// Note that the first character will always be "/"
+	size_t len = prefix.length();
+	if( (len==0) || (request_uri.find(prefix)==1) ){
+	  // This is indeed a mapped request, so map our prefix with the appropriate protocol
+	  unsigned int start = (len>0) ? len+2 : 1; // Add 2 to remove both leading and trailing slashes
+	  // Strip out any query string if we are in prefix mode
+	  size_t q = request_uri.find_first_of('?');
+	  unsigned int end = (q==string::npos) ? request_uri.length() : q;
+	  request_string = command + "=" + request_uri.substr( start, end-start );
+	  if( loglevel >= 2 ) logfile << "Request URI mapped to " << request_string << endl;
+	}
+      }
+#endif
+
+      // If the request string hasn't been set through a URI map, get it from the QUERY_STRING variable
+      if( request_string.empty() ){
+	// Get the query into a string
+#ifdef DEBUG
+	header = argv[1];
+#else
+	header = FCGX_GetParam( "QUERY_STRING", request.envp );
+#endif
+
+	request_string = (header!=NULL)? header : "";
+      }
+
+
+
+      // Check that we actually have a request string
+      if( request_string.empty() ){
+	throw string( "QUERY_STRING not set" );
+      }
+
+      if( loglevel >=2 ){
+	logfile << "Full Request is " << request_string << endl;
+      }
+
+
+      // Store some headers
+      session.headers["QUERY_STRING"] = request_string;
+      session.headers["BASE_URL"] = base_url;
+
+#ifndef DEBUG
+      // Get several other HTTP headers
+      if( (header = FCGX_GetParam("SERVER_PROTOCOL", request.envp)) ){
+        session.headers["SERVER_PROTOCOL"] = string(header);
+      }
+      if( (header = FCGX_GetParam("HTTP_HOST", request.envp)) ){
+        session.headers["HTTP_HOST"] = string(header);
+      }
+      if( (header = FCGX_GetParam("REQUEST_URI", request.envp)) ){
+        session.headers["REQUEST_URI"] = string(header);
+      }
+      if( (header = FCGX_GetParam("HTTPS", request.envp)) ) {
+        session.headers["HTTPS"] = string(header);
+      }
+      if( (header = FCGX_GetParam("HTTP_X_IIIF_ID", request.envp)) ){
+        session.headers["HTTP_X_IIIF_ID"] = string(header);
+      }
+
+      // Check for IF_MODIFIED_SINCE
       if( (header = FCGX_GetParam("HTTP_IF_MODIFIED_SINCE", request.envp)) ){
 	session.headers["HTTP_IF_MODIFIED_SINCE"] = string(header);
 	if( loglevel >= 2 ){
-	  logfile << "HTTP Header: If-Modified-Since: " << session.headers["HTTP_IF_MODIFIED_SINCE"] << endl;
+	  logfile << "HTTP Header: If-Modified-Since: " << header << endl;
 	}
       }
-      session.headers["QUERY_STRING"] = request_string;
-
+#endif
 
 #ifdef HAVE_MEMCACHED
       // Check whether this exists in memcached, but only if we haven't had an if_modified_since
       // request, which should always be faster to send
-      if( !header ){
+      if( !header || session.headers["HTTP_IF_MODIFIED_SINCE"].empty() ){
 	char* memcached_response = NULL;
 	if( (memcached_response = memcached.retrieve( request_string )) ){
 	  writer.putStr( memcached_response, memcached.length() );
@@ -635,7 +798,7 @@ int main( int argc, char *argv[] )
     catch( const string& error ){
 
       if( loglevel >= 1 ){
-	logfile << error << endl << endl;
+	logfile << endl << error << endl << endl;
       }
 
       if( response.errorIsSet() ){
@@ -651,9 +814,35 @@ int main( int argc, char *argv[] )
       else{
 	/* Display our advertising banner ;-)
 	 */
-	writer.printf( response.getAdvert( version ).c_str() );
+	writer.printf( response.getAdvert().c_str() );
       }
 
+    }
+
+    // Image file errors
+    catch( const file_error& error ){
+      string status = "Status: 404 Not Found\r\nServer: iipsrv/" + version +
+	(response.getCORS().length() ? "\r\n" + response.getCORS() : "") +
+	 "\r\n\r\n" + error.what();
+      writer.printf( status.c_str() );
+      writer.flush();
+      if( loglevel >= 2 ){
+	logfile << error.what() << endl;
+	logfile << "Sending HTTP 404 Not Found" << endl;
+      }
+    }
+
+    // Parameter errors
+    catch( const invalid_argument& error ){
+      string status = "Status: 400 Bad Request\r\nServer: iipsrv/" + version +
+	(response.getCORS().length() ? "\r\n" + response.getCORS() : "") +
+	"\r\n\r\n" + error.what();
+      writer.printf( status.c_str() );
+      writer.flush();
+      if( loglevel >= 2 ){
+	logfile << error.what() << endl;
+	logfile << "Sending HTTP 400 Bad Request" << endl;
+      }
     }
 
     /* Default catch
@@ -666,7 +855,7 @@ int main( int argc, char *argv[] )
 
       /* Display our advertising banner ;-)
        */
-      writer.printf( response.getAdvert( version ).c_str() );
+      writer.printf( response.getAdvert().c_str() );
 
     }
 
@@ -697,7 +886,6 @@ int main( int argc, char *argv[] )
     if( loglevel >= 2 ){
       logfile << "image closed and deleted" << endl
 	      << "Server count is " << IIPcount << endl << endl;
-      
     }
 
 

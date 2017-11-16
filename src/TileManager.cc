@@ -4,7 +4,7 @@
 
 /*  IIP Server: Tile Cache Handler
 
-    Copyright (C) 2005-2013 Ruven Pillay.
+    Copyright (C) 2005-2016 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 
 
 
+#include <cmath>
 #include "TileManager.h"
 
 
@@ -57,7 +58,7 @@ RawTile TileManager::getNewTile( int resolution, int tile, int xangle, int yangl
   }
 
 
-  // We need to crop our edge tiles if they are not the full tile size
+  // We need to crop our edge tiles if they are padded
   if( ((ttt.width != image->getTileWidth()) || (ttt.height != image->getTileHeight())) && ttt.padded ){
     if( loglevel >= 5 ) * logfile << "TileManager :: Cropping tile" << endl;
     this->crop( &ttt );
@@ -80,7 +81,7 @@ RawTile TileManager::getNewTile( int resolution, int tile, int xangle, int yangl
   case JPEG:
 
     // Do our JPEG compression iff we have an 8 bit per channel image
-    if( ttt.bpc == 8 ){
+    if( ttt.bpc == 8 && (ttt.channels==1 || ttt.channels==3) ){
       if( loglevel >=2 ) compression_timer.start();
       jpeg->Compress( ttt );
       if( loglevel >= 2 ) *logfile << "TileManager :: JPEG Compression Time: "
@@ -244,8 +245,8 @@ RawTile TileManager::getTile( int resolution, int tile, int xangle, int yangle, 
     // Rawtile is a pointer to the cache data, so we need to create a copy of it in case we compress it
     RawTile ttt( *rawtile );
 
-    // Do our JPEG compression iff we have an 8 bit per channel image
-    if( rawtile->bpc == 8 ){
+    // Do our JPEG compression iff we have an 8 bit per channel image and either 1 or 3 bands
+    if( rawtile->bpc==8 && (rawtile->channels==1 || rawtile->channels==3) ){
 
       // Crop if this is an edge tile
       if( ( (ttt.width != image->getTileWidth()) || (ttt.height != image->getTileHeight()) ) && ttt.padded ){
@@ -305,7 +306,7 @@ RawTile TileManager::getRegion( unsigned int res, int seq, int ang, int layers, 
 
   // The basic tile size ie. not the current tile
   unsigned int basic_tile_width = src_tile_width;
-  // unsigned int basic_tile_height = src_tile_height;
+  unsigned int basic_tile_height = src_tile_height;
 
   int num_res = image->getNumResolutions();
   unsigned int im_width = image->image_widths[num_res-res-1];
@@ -328,13 +329,15 @@ RawTile TileManager::getRegion( unsigned int res, int seq, int ang, int layers, 
     starty = (unsigned int) ( y / src_tile_height );
     xoffset = x % src_tile_width;
     yoffset = y % src_tile_height;
-    endx = (unsigned int) ( (width + x) / src_tile_width ) + 1;
-    endy = (unsigned int) ( (height + y) / src_tile_height ) + 1;
+
+    endx = (unsigned int) ceil( (float)(width + x) / (float)src_tile_width );
+    endy = (unsigned int) ceil( (float)(height + y) / (float)src_tile_height );
 
     if( loglevel >= 3 ){
-      *logfile << "TileManager getRegion :: Tile Start: " << startx << "," << starty << ","
+      *logfile << "TileManager getRegion :: Total tiles in image: " << ntlx << "x" << ntly << " tiles" << endl
+	       << "TileManager getRegion :: Tile start: " << startx << "," << starty << " with offset: "
 	       << xoffset << "," << yoffset << endl
-	       << "TileManager getRegion :: End Tiles: " << endx << "," << endy << endl;
+	       << "TileManager getRegion :: Tile end: " << endx-1 << "," << endy-1 << endl;
     }
   }
   else{
@@ -345,19 +348,22 @@ RawTile TileManager::getRegion( unsigned int res, int seq, int ang, int layers, 
 
 
   unsigned int channels = image->getNumChannels();
-  unsigned int bpp = image->getNumBitsPerPixel();
+  unsigned int bpc = image->getNumBitsPerPixel();
   SampleType sampleType = image->getSampleType();
 
+  // Assume 1 bit data has been unpacked to 8 bits per channel
+  if( bpc == 1 ) bpc = 8;
+
   // Create an empty tile with the correct dimensions
-  RawTile region( 0, res, seq, ang, width, height, channels, bpp );
-  region.dataLength = width * height * channels * bpp/8;
+  RawTile region( 0, res, seq, ang, width, height, channels, bpc );
+  region.dataLength = width * height * channels * bpc/8;
   region.sampleType = sampleType;
 
   // Allocate memory for the region
-  if( bpp == 8 ) region.data = new unsigned char[width*height*channels];
-  else if( bpp == 16 ) region.data = new unsigned short[width*height*channels];
-  else if( bpp == 32 && sampleType == FIXEDPOINT ) region.data = new int[width*height*channels];
-  else if( bpp == 32 && sampleType == FLOATINGPOINT ) region.data = new float[width*height*channels];
+  if( bpc == 8 ) region.data = new unsigned char[width*height*channels];
+  else if( bpc == 16 ) region.data = new unsigned short[width*height*channels];
+  else if( bpc == 32 && sampleType == FIXEDPOINT ) region.data = new int[width*height*channels];
+  else if( bpc == 32 && sampleType == FLOATINGPOINT ) region.data = new float[width*height*channels];
 
   unsigned int current_height = 0;
 
@@ -390,12 +396,9 @@ RawTile TileManager::getRegion( unsigned int res, int seq, int ang, int layers, 
 		 << rawtile.bpc << " bits per channel" << endl;
       }
 
-      // Set the tile width and height to be that of the source tile
-      // - Use the rawtile data because if we take a tile from cache
-      //   the image pointer will not necessarily be pointing to the
-      //   the current tile
-      //	src_tile_width = (*session->image)->getTileWidth();
-      //	src_tile_height = (*session->image)->getTileHeight();
+      // Set the tile width and height to be that of the source tile - Use the rawtile data
+      // because if we take a tile from cache the image pointer will not necessarily be pointing
+      // to the the current tile
       src_tile_width = rawtile.width;
       src_tile_height = rawtile.height;
       dst_tile_width = src_tile_width;
@@ -409,6 +412,8 @@ RawTile TileManager::getRegion( unsigned int res, int seq, int ang, int layers, 
       // and end points on the source image
       if( !( x==0 && y==0 && width==im_width && height==im_height ) ){
 
+	unsigned int remainder;  // Remaining pixels in the final row or column
+
 	if( j == startx ){
 	  // Calculate the width used in the current tile
 	  // If there is only 1 tile, the width is just the view width
@@ -417,7 +422,9 @@ RawTile TileManager::getRegion( unsigned int res, int seq, int ang, int layers, 
 	  xf = xoffset;
 	}
 	else if( j == endx-1 ){
-	  dst_tile_width = (width+x) % basic_tile_width;
+	  // If this is the final row, calculate the remaining number of pixels
+	  remainder = (width+x) % basic_tile_width;
+	  if( remainder != 0 ) dst_tile_width = remainder;
 	}
 
 	if( i == starty ){
@@ -428,12 +435,14 @@ RawTile TileManager::getRegion( unsigned int res, int seq, int ang, int layers, 
 	  yf = yoffset;
 	}
 	else if( i == endy-1 ){
-	  dst_tile_height = (height+y) % basic_tile_width;
+	  // If this is the final row, calculate the remaining number of pixels
+	  remainder = (height+y) % basic_tile_height;
+	  if( remainder != 0 ) dst_tile_height = remainder;
 	}
 
 	if( loglevel >= 4 ){
-	  *logfile << "TileManager getRegion :: destination tile height: " << dst_tile_height
-		   << ", tile width: " << dst_tile_width << endl;
+	  *logfile << "TileManager getRegion :: destination tile width: " << dst_tile_width
+		   << ", tile height: " << dst_tile_height << endl;
 	}
       }
 
@@ -446,22 +455,22 @@ RawTile TileManager::getRegion( unsigned int res, int seq, int ang, int layers, 
 	unsigned int inx = ((k+yf)*rawtile.width*channels) + (xf*channels);
 
 	// Simply copy the line of data across
-	if( bpp == 8 ){
+	if( bpc == 8 ){
 	  unsigned char* ptr = (unsigned char*) rawtile.data;
 	  unsigned char* buf = (unsigned char*) region.data;
 	  memcpy( &buf[buffer_index], &ptr[inx], dst_tile_width*channels );
 	}
-	else if( bpp ==  16 ){
+	else if( bpc ==  16 ){
 	  unsigned short* ptr = (unsigned short*) rawtile.data;
 	  unsigned short* buf = (unsigned short*) region.data;
 	  memcpy( &buf[buffer_index], &ptr[inx], dst_tile_width*channels*2 );
 	}
-	else if( bpp == 32 && sampleType == FIXEDPOINT ){
+	else if( bpc == 32 && sampleType == FIXEDPOINT ){
 	  unsigned int* ptr = (unsigned int*) rawtile.data;
 	  unsigned int* buf = (unsigned int*) region.data;
 	  memcpy( &buf[buffer_index], &ptr[inx], dst_tile_width*channels*4 );
 	}
-	else if( bpp == 32 && sampleType == FLOATINGPOINT ){
+	else if( bpc == 32 && sampleType == FLOATINGPOINT ){
 	  float* ptr = (float*) rawtile.data;
 	  float* buf = (float*) region.data;
 	  memcpy( &buf[buffer_index], &ptr[inx], dst_tile_width*channels*4 );
