@@ -461,7 +461,8 @@ void filter_cmap( RawTile& in, std::string cmap ){
       ++lut;
 
     colormap = new float[lut * out_chan];
-    infile = ifstream(cmap.c_str());
+    infile.clear();
+    infile.seekg(0, ios::beg);
     while (getline(infile, line) && i < lut) {
       Tokenizer izer( line, ":" );
       j = 0;
