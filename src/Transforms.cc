@@ -450,13 +450,12 @@ void filter_cmap( RawTile& in, std::string cmap ){
   }
   else {
     // Custom colormap
-    ifstream infile;
     string line, token;
     int i = 0, j, lut = 0;
     float *colormap;
 
     // Get LUT size
-    infile = ifstream(cmap.c_str());
+    ifstream infile(cmap.c_str());
     while (getline(infile, line))
       ++lut;
 
