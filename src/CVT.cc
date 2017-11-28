@@ -265,7 +265,7 @@ void CVT::send( Session* session ){
     }
 
 
-    // Apply any contrast adjustments and/or clip from 16bit or 32bit to 8bit
+    // Apply any contrast adjustments
     if( session->loglevel >= 5 ) function_timer.start();
     filter_contrast( complete_image, session->view->getContrast() );
     if( session->loglevel >= 5 ){
@@ -274,6 +274,7 @@ void CVT::send( Session* session ){
     }
 
 
+    // clip from 16bit or 32bit to 8bit if needed
     if( session->loglevel >=5 ) function_timer.start();
     unsigned int b = 8;
     if ( session->view->output_format == TIFF_ ) {
