@@ -18,6 +18,11 @@
 #include "PNGCompressor.h"
 #include "Timer.h"
 
+inline bool byte_order_little_endian() {
+  long one = 1;
+  return (*((char*)(&one)));
+}
+
 static void png_write_data( png_structp png_ptr, png_bytep payload, png_size_t length ) {
 
   /* some debugging code that spits the png out to a file
@@ -76,8 +81,6 @@ void PNGCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_
     throw string( "PNGCompressor:: currently only either 1 or 3 channels are supported with or without alpha values." );
   }
 
-  const int ciBitDepth = bpc;
-
   dest.png_ptr = png_create_write_struct( PNG_LIBPNG_VER_STRING, NULL,
                                           (png_error_ptr) png_cexcept_error, (png_error_ptr) NULL );
 
@@ -89,6 +92,20 @@ void PNGCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_
     png_destroy_write_struct( &dest.png_ptr, (png_infopp) NULL );
     throw string( "PNGCompressor:: Error creating png_infop." );
   }
+
+  png_set_IHDR(
+      dest.png_ptr,
+      dest.info_ptr,
+      width,
+      height,
+      bpc,
+      ((channels < 3) ?
+       ((channels == 2) ? PNG_COLOR_TYPE_GRAY_ALPHA : PNG_COLOR_TYPE_GRAY) :
+       ((channels == 4) ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB)),
+      PNG_INTERLACE_NONE,
+      PNG_COMPRESSION_TYPE_BASE,
+      PNG_FILTER_TYPE_BASE
+  );
 
   /*********************************************************
    NOTES: enabling compression to Z_BEST_SPEED results in a 3x slowdown
@@ -107,24 +124,13 @@ void PNGCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_
 
   png_set_write_fn( dest.png_ptr, (png_voidp) &dest, png_write_data, png_flush );
 
-  // We're going to write a very simple 3x8 bit RGB image
-  png_set_IHDR(
-      dest.png_ptr,
-      dest.info_ptr,
-      width,
-      height,
-      bpc,
-      ((channels < 3) ?
-       ((channels == 2) ? PNG_COLOR_TYPE_GRAY_ALPHA : PNG_COLOR_TYPE_GRAY) :
-       ((channels == 4) ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB)),
-      PNG_INTERLACE_NONE,
-      PNG_COMPRESSION_TYPE_BASE,
-      PNG_FILTER_TYPE_BASE
-  );
-
   // Write the header information at this point
   png_write_info( dest.png_ptr, dest.info_ptr );
 
+  // MUST BE below png_write_info
+  if (bpc == 16 && byte_order_little_endian()) {
+    png_set_swap(dest.png_ptr);
+  }
 }
 
 
@@ -136,10 +142,6 @@ void PNGCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_
 unsigned int
 PNGCompressor::CompressStrip( unsigned char *inputbuff, unsigned char *outputbuff,
                               unsigned int tile_height ) throw( string ) {
-
-  Timer partoffunction;
-  Timer entirefunction;
-  entirefunction.start();
 
   png_uint_32 ulRowBytes = width * channels * bpc / 8;
 
