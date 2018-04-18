@@ -1,7 +1,7 @@
 /*
     IIP Generic Task Class
 
-    Copyright (C) 2006-2013 Ruven Pillay.
+    Copyright (C) 2006-2017 Ruven Pillay
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -35,6 +35,8 @@
 #include "Writer.h"
 #include "Cache.h"
 #include "Watermark.h"
+#include "TIFFCompressor.h"
+
 #ifdef HAVE_PNG
 #include "PNGCompressor.h"
 #endif
@@ -47,13 +49,13 @@
 
 #ifdef HAVE_EXT_POOL_ALLOCATOR
 #include <ext/pool_allocator.h>
-typedef HASHMAP < const std::string, IIPImage,
+typedef HASHMAP < std::string, IIPImage,
 			      __gnu_cxx::hash< const std::string >,
 			      std::equal_to< const std::string >,
 			      __gnu_cxx::__pool_alloc< std::pair<const std::string,IIPImage> >
 			      > imageCacheMapType;
 #else
-typedef HASHMAP <const std::string,IIPImage> imageCacheMapType;
+typedef HASHMAP <std::string,IIPImage> imageCacheMapType;
 #endif
 
 
@@ -64,6 +66,8 @@ typedef HASHMAP <const std::string,IIPImage> imageCacheMapType;
 /// Structure to hold our session data
 struct Session {
   IIPImage **image;
+  RawCompressor* raw;
+  TIFFCompressor* tiff;
   JPEGCompressor* jpeg;
 #ifdef HAVE_PNG
   PNGCompressor* png;
@@ -107,7 +111,7 @@ class Task {
  public:
 
   /// Virtual destructor
-  virtual ~Task() {;};   
+  virtual ~Task() {;};
 
   /// Main public function
   virtual void run( Session* session, const std::string& argument ) {;};
@@ -115,7 +119,6 @@ class Task {
   /// Factory function
   /** @param type command type */
   static Task* factory( const std::string& type );
-
 
   /// Check image
   void checkImage();
@@ -142,6 +145,7 @@ class OBJ : public Task {
   void horizontal_views();
   void vertical_views();
   void min_max_values();
+  void resolutions();
   void metadata( std::string field );
   void image_properties();
 
@@ -225,10 +229,17 @@ class FIF : public Task {
 };*/
 
 
-/// JPEG Tile Command
+/// JPEG Tile Export Command
 class JTL : public Task {
  public:
   void run( Session* session, const std::string& argument );
+
+  /// Send out a single tile
+  /** @param session our current session
+      @param resolution requested image resolution
+      @param tile requested tile index
+   */
+  void send( Session* session, int resolution, int tile );
 };
 
 
@@ -246,10 +257,14 @@ class TIL : public Task {
 };
 
 
-/// CVT Command
+/// CVT Region Export Command
 class CVT : public Task {
  public:
   void run( Session* session, const std::string& argument );
+
+  /// Send out our requested region
+  /** @param session our current session */
+  void send( Session* session );
 };
 
 
@@ -311,5 +326,28 @@ class DeepZoom : public Task {
  public:
   void run( Session* session, const std::string& argument );
 };
+
+
+/// IIIF Command
+class IIIF : public Task {
+ public:
+  void run( Session* session, const std::string& argument );
+};
+
+
+/// Color Twist Command
+class CTW : public Task {
+ public:
+  void run( Session* session, const std::string& argument );
+};
+
+
+/// Output bit Command
+class BIT : public Task {
+ public:
+  void run( Session* session, const std::string& argument );
+};
+
+
 
 #endif

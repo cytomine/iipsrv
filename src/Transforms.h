@@ -38,8 +38,7 @@ void filter_normalize( RawTile& in, std::vector<float>& max, std::vector<float>&
 /** @param in tile data to be converted
     @param cmap color map to apply.
 */
-enum cmap_type { HOT, COLD, JET, BLUE, GREEN, RED };
-void filter_cmap( RawTile& in, enum cmap_type cmap );
+void filter_cmap( RawTile& in, std::string cmap );
 
 /// Function to invert colormaps
 /** @param in tile data to be adjusted
@@ -60,11 +59,18 @@ void filter_shade( RawTile& in, int h_angle, int v_angle );
 void filter_LAB2sRGB( RawTile& in );
 
 
-/// Function to apply a contrast adjustment and clip to 8 bit
+/// Function to apply a contrast adjustment
 /** @param in tile data to be adjusted
     @param c contrast value
 */
 void filter_contrast( RawTile& in, float c );
+
+
+/// Function to clip data to b bit
+/** @param in tile data to be adjusted
+ *  @param b number of bits
+ */
+void filter_clip( RawTile& in, const unsigned int b );
 
 
 /// Apply a gamma correction
@@ -102,6 +108,26 @@ void filter_rotate( RawTile& in, float angle );
 /** @param in input image */
 void filter_greyscale( RawTile& in );
 
+
+/// Apply a color twist
+/** @param in input image
+    @param ctw 2D color twist matrix
+*/
+void filter_twist( RawTile& in, const std::vector< std::vector<float> >& ctw );
+
+
+/// Extract bands
+/** @param in input image
+    @param bands number of bands
+*/
+void filter_flatten( RawTile& in, int bands );
+
+
+///Flip image
+/** @param in input image
+    @param o orientation (0=horizontal,1=vertical)
+*/
+void filter_flip( RawTile& in, int o );
 
 
 #endif

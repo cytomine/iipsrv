@@ -1,7 +1,7 @@
 /*
     IIP OJB Command Handler Class Member Functions
 
-    Copyright (C) 2006-2013 Ruven Pillay.
+    Copyright (C) 2006-2017 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -53,9 +53,9 @@ void OBJ::run( Session* s, const std::string& a )
   }
   else if( argument == "iip-server" ) iip_server();
   // IIP optional commands
-  else if( argument == "iip-opt-comm" ) session->response->addResponse( "IIP-opt-comm:CVT CNT QLT JTL JTLS WID HEI RGN MINMAX SHD CMP INV" );
+  else if( argument == "iip-opt-comm" ) session->response->addResponse( "IIP-opt-comm:CVT CNT QLT JTL JTLS WID HEI RGN MINMAX SHD CMP INV CTW" );
   // IIP optional objects
-  else if( argument == "iip-opt-obj" ) session->response->addResponse( "IIP-opt-obj:Horizontal-views Vertical-views Tile-size Bits-per-channel Min-Max-sample-values" );
+  else if( argument == "iip-opt-obj" ) session->response->addResponse( "IIP-opt-obj:Horizontal-views Vertical-views Tile-size Bits-per-channel Min-Max-sample-values Resolutions" );
   // Resolution-number
   else if( argument == "resolution-number" ) resolution_number();
   // Max-size
@@ -70,7 +70,11 @@ void OBJ::run( Session* s, const std::string& a )
   else if( argument == "horizontal-views" ) horizontal_views();
   // Minimum and maximum provided by TIFF tags
   else if( argument == "min-max-sample-values" ) min_max_values();
-  
+  //Images from OpenSlide
+  else if ( argument == "image-properties") image_properties();
+  // List of available resolutions
+  else if( argument == "resolutions" ) resolutions();
+
   // Colorspace
   /* The request can have a suffix, which we don't need, so do a
      like scan
@@ -180,11 +184,11 @@ void OBJ::tile_size(){
 void OBJ::bits_per_channel(){
 
   checkImage();
-  int bpp = (*session->image)->getNumBitsPerPixel();
+  int bpc = (*session->image)->getNumBitsPerPixel();
   if( session->loglevel >= 2 ){
-    *(session->logfile) << "OBJ :: Bits-per-channel handler returning " << bpp << endl;
+    *(session->logfile) << "OBJ :: Bits-per-channel handler returning " << bpc << endl;
   }
-  session->response->addResponse( "Bits-per-channel", bpp );
+  session->response->addResponse( "Bits-per-channel", bpc );
 
 }
 
@@ -220,6 +224,7 @@ void OBJ::horizontal_views(){
   session->response->addResponse( tmp );
 }
 
+
 void OBJ::min_max_values(){
 
   checkImage();
@@ -243,6 +248,26 @@ void OBJ::min_max_values(){
   }
 
 }
+
+
+void OBJ::resolutions(){
+
+  checkImage();
+  char val[32];
+  int num_res = (*session->image)->getNumResolutions();
+
+  string tmp = "Resolutions:";
+  for( int i=num_res-1; i>=0; i-- ){
+    snprintf( val, 32, "%d %d", (*session->image)->image_widths[i], (*session->image)->image_heights[i] );
+    tmp += val;
+    if( i>0 ) tmp += ",";
+  }
+  session->response->addResponse( tmp );
+  if( session->loglevel >= 2 ){
+    *(session->logfile) << "OBJ :: Resolutions handler returning " << tmp << endl;
+  }
+}
+
 
 void OBJ::colorspace( std::string arg ){
 
@@ -293,6 +318,19 @@ void OBJ::metadata( string field ){
   }
 
 
+}
+
+
+void OBJ::image_properties() {
+    map<const std::string, std::string> metadata_map = (*session->image)->metadata;
+      map<const std::string, std::string>::iterator it;
+      for ( it=metadata_map.begin() ; it != metadata_map.end(); it++ ) {
+          stringstream ss (stringstream::in | stringstream::out);
+          ss << (*it).first;
+          ss << ":";
+          ss << (*it).second;
+          session->response->addResponse( ss.str().c_str() );
+      }
 }
 
 

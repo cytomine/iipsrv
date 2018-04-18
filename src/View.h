@@ -1,7 +1,7 @@
 /*
-    Image View Parameters
+    Image View and Transform Parameters
 
-    Copyright (C) 2003-2013 Ruven Pillay.
+    Copyright (C) 2003-2017 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 
 
 #include <cstddef>
+#include <vector>
 
 #include "Transforms.h"
 
@@ -43,11 +44,12 @@ class View{
  private:
 
   // Resolution independent x,y,w,h region viewport
-  double view_left, view_top, view_width, view_height; /// viewport
+  float view_left, view_top, view_width, view_height; /// viewport
 
   int resolution;                             /// Requested resolution
   unsigned int max_resolutions;               /// Total available resolutions
-  unsigned int width, height;                 /// Width and height at requested resolution
+  unsigned int width, height;                 /// Image width and height at full resolution
+  unsigned int res_width, res_height;         /// Width and height at requested resolution
   unsigned int min_size;                      /// Minimum viewport dimension
   unsigned int max_size;                      /// Maximum viewport dimension
   unsigned int requested_width;               /// Width requested by WID command
@@ -58,7 +60,7 @@ class View{
 
 
   /// Internal function to calculate the resolution associated with a width
-  ///  or height request. This also takes into account maximum size limits.
+  ///  or height request. This also takes into account maximum & minimum size limits.
   /** @param m maximum size
       @param r requested size
    */
@@ -67,31 +69,45 @@ class View{
 
  public:
 
-  int xangle;                                  /// Horizontal View
-  int yangle;                                  /// Vertical View
-  bool shaded;                                 /// Whether to use shading view
-  int shade[3];                                /// Shading incident light angles (x,y,z)
-  bool cmapped;                                /// Whether to modify colormap
-  enum cmap_type cmap;                         /// colormap
-  bool inverted;                               /// Whether to invert colormap
-  int max_layers;			       /// Maximum number of quality layers allowed
-  int layers;			               /// Number of quality layers
-  ColourSpaces colourspace;                    /// Requested colourspace
+  int xangle;                                 /// Horizontal View
+  int yangle;                                 /// Vertical View
+  bool shaded;                                /// Whether to use shading view
+  int shade[3];                               /// Shading incident light angles (x,y,z)
+  bool cmapped;                               /// Whether to modify colormap
+  std::string cmap;                           /// colormap
+  bool inverted;                              /// Whether to invert colormap
+  int max_layers;			                        /// Maximum number of quality layers allowed
+  int layers;			                            /// Number of quality layers
+  ColourSpaces colourspace;                   /// Requested colourspace
+  std::vector< std::vector<float> > ctw;      /// Colour twist matrix
+  int flip;                                   /// Flip (1=horizontal, 2=vertical)
+  bool maintain_aspect;                       /// Indicate whether aspect ratio should be maintained
+  bool allow_upscaling;                       /// Indicate whether images may be served larger than the source file
+  bool embed_icc;                             /// Indicate whether we should embed ICC profiles
+  CompressionType output_format;              /// Requested output format
+  unsigned int output_bpc;                    /// Requested output bit per channels
 
 
   /// Constructor
   View() {
-    resolution = 0; max_resolutions = 0; min_size = 8; max_size = 0;
-    width = 0; height = 0;
     view_left = 0.0; view_top = 0.0; view_width = 1.0; view_height = 1.0;
+    resolution = 0; max_resolutions = 0;
+    width = 0; height = 0;
+    res_width = 0; res_height = 0;
+    min_size = 1; max_size = 0;
     requested_width = 0; requested_height = 0;
     contrast = 1.0; gamma = 1.0;
     xangle = 0; yangle = 90;
     shaded = false; shade[0] = 0; shade[1] = 0; shade[2] = 0;
-    cmapped = false; inverted = false;
+    cmapped = false; cmap = ""; inverted = false;
     max_layers = 0; layers = 0;
-    rotation = 0.0;
+    rotation = 0.0; flip = 0;
+    maintain_aspect = true;
+    allow_upscaling = true;
     colourspace = NONE;
+    embed_icc = true;
+    output_format = JPEG;
+    output_bpc = 8;
   };
 
 
@@ -105,9 +121,40 @@ class View{
   void setMaxSize( unsigned int m ){ max_size = m; };
 
 
+  /// Get the maximum allowed output size
+  /* @return maximum output dimension */
+  unsigned int getMaxSize(){ return max_size; };
+  
+
+  /// Set the allow_upscaling flag
+  /** @param upscale allow upscaling of source image */
+  void setAllowUpscaling( bool upscale ){ allow_upscaling = upscale; };
+
+
+  /// Get the allow_upscaling flag
+  /* @return true or false */
+  bool allowUpscaling(){ return allow_upscaling; };
+
+
+  /// Set the embed_icc flag
+  /** @param embed embed icc profile flag
+   */
+  void setEmbedICC( bool embed ){ embed_icc = embed; };
+
+
+  /// Get the embed_icc flag - disable in case of certain types of processing
+  /** @param embed embed icc profile flag
+   */
+  bool embedICC(){
+    // Disable if colour-mapping, twist, hill-shading or greyscale conversion applied
+    if( cmapped || shaded || ctw.size() || colourspace==GREYSCALE ) return false;
+    return embed_icc;
+  };
+
+
   /// Set the maximum view port dimension
   /** @param r number of availale resolutions */
-  void setMaxResolutions( unsigned int r ){ max_resolutions = r; };
+  void setMaxResolutions( unsigned int r ){ max_resolutions = r; resolution=r-1; };
 
 
   /// Get the size of the requested width
@@ -118,8 +165,7 @@ class View{
   /// Set the size of the requested width
   /** @param w requested image width */
   void setRequestWidth( unsigned int w ){
-    if( (max_size > 0) && (w > max_size) ) requested_width = max_size;
-    else requested_width = w;
+    requested_width = w;
   };
 
 
@@ -131,8 +177,7 @@ class View{
   /// Set the size of the requested height
   /** @param h requested image height */
   void setRequestHeight( unsigned int h ){
-    if( (max_size > 0) && (h > max_size) ) requested_height = max_size;
-    else requested_height = h;
+    requested_height = h;
   };
 
 
@@ -143,27 +188,27 @@ class View{
 
   /// Return the scaling required in case our requested width or height is in between available resolutions
   /* @return scaling factor */
-  double getScale();
+  float getScale();
 
 
   /// Set the left co-ordinate of the viewport
   /** @param x left resolution independent co-ordinate */
-  void setViewLeft( double x );
+  void setViewLeft( float x );
 
 
   /// Set the top co-ordinate of the viewport
   /** @param y top resolution independent co-ordinate */
-  void setViewTop( double y );
+  void setViewTop( float y );
 
 
   /// Set the width co-ordinate of the viewport
   /** @param w width resolution independent co-ordinate */
-  void setViewWidth( double w );
+  void setViewWidth( float w );
 
 
   /// Set the height co-ordinate of the viewport
   /** @param h height resolution independent co-ordinate */
-  void setViewHeight( double h );
+  void setViewHeight( float h );
 
 
   /// Set the source image pixel size
@@ -231,6 +276,14 @@ class View{
   /// Get rotation
   /* @return requested rotation angle in degrees */
   float getRotation(){ return rotation; };
+
+  /// Whether view requires floating point processing
+  bool floatProcessing(){
+    if( contrast != 1.0 || gamma != 1.0 || cmapped || shaded || inverted || ctw.size() ){
+      return true;
+    }
+    else return false;
+  }
 
 };
 

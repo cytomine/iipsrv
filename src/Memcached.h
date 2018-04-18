@@ -27,7 +27,9 @@
 #include <string>
 #include <libmemcached/memcached.h>
 
-
+#ifdef LIBMEMCACHED_VERSION_STRING
+typedef memcached_return memcached_return_t;
+#endif
 
 /// Cache to store raw tile data
 
@@ -62,6 +64,8 @@ class Memcache {
       @param timeout memcached timeout - defaults to 1 hour (3600 seconds)
   */
   Memcache( const std::string& servernames = "localhost", unsigned int timeout = 3600 ) {
+
+    _length = 0;
 
     // Set our timeout
     _timeout =  timeout;
