@@ -621,6 +621,7 @@ void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, uns
   int channels = in.channels;
   unsigned int width = in.width;
   unsigned int height = in.height;
+  unsigned long np = in.channels * in.width * in.height;
 
   // Create new buffer and pointer for our output
   unsigned int *ioutput = NULL;
@@ -671,6 +672,11 @@ void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, uns
       p12 = (unsigned int) ( channels * ( ii + (jj+1)*width ) );
       p21 = (unsigned int) ( channels * ( (ii+1) + jj*width ) );
       p22 = (unsigned int) ( channels * ( (ii+1) + (jj+1)*width ) );
+
+      // Make sure we don't stray outside our input buffer boundary
+      // - use replication at the edge
+      p12 = (p12<=np)? p12 : np-channels;
+      p22 = (p22<=np)? p22 : np-channels;
 
       // Calculate the rest of our weights
       float iscale = i*xscale;
