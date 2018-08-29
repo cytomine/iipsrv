@@ -2,7 +2,7 @@
 
 /*  IIP fcgi server module - image processing routines
 
-    Copyright (C) 2004-2016 Ruven Pillay.
+    Copyright (C) 2004-2017 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -668,10 +668,16 @@ void filter_interpolate_bilinear( RawTile& in, unsigned int resampled_width, uns
 
       // Calculate the indices of the 4 surrounding pixels
       unsigned int p11, p12, p21, p22;
-      p11 = (unsigned int) ( channels * ( ii + jj*width ) );
-      p12 = (unsigned int) ( channels * ( ii + (jj+1)*width ) );
-      p21 = (unsigned int) ( channels * ( (ii+1) + jj*width ) );
-      p22 = (unsigned int) ( channels * ( (ii+1) + (jj+1)*width ) );
+      unsigned long jj_w = jj*width;
+      p11 = (unsigned int) ( channels * ( ii + jj_w ) );
+      p12 = (unsigned int) ( channels * ( ii + (jj_w+width) ) );
+      p21 = (unsigned int) ( channels * ( (ii+1) + jj_w ) );
+      p22 = (unsigned int) ( channels * ( (ii+1) + (jj_w+width) ) );
+
+      // Make sure we don't stray outside our input buffer boundary
+      // - use replication at the edge
+      p12 = (p12<=np)? p12 : np-channels;
+      p22 = (p22<=np)? p22 : np-channels;
 
       // Make sure we don't stray outside our input buffer boundary
       // - use replication at the edge
@@ -838,7 +844,7 @@ void filter_rotate( RawTile& in, float angle=0.0 ){
   // Currently implemented only for rectangular rotations
   if( (int)angle % 90 == 0 && (int)angle % 360 != 0 ){
 
-    // Intialize our counter
+    // Initialize our counter
     unsigned int n = 0;
 
     // Allocate memory for our temporary buffer - rotate function only ever operates on 8bit data

@@ -3,7 +3,7 @@
 
 /*  IIP fcgi server module
 
-    Copyright (C) 2000-2016 Ruven Pillay.
+    Copyright (C) 2000-2018 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -81,7 +81,7 @@ void IIPImage::swap( IIPImage& first, IIPImage& second ) // nothrow
 
 
 
-void IIPImage::testImageType() throw(file_error)
+void IIPImage::testImageType()
 {
   // Check whether it is a regular file
   struct stat sb;
@@ -194,7 +194,7 @@ void IIPImage::testImageType() throw(file_error)
 
 
 
-void IIPImage::updateTimestamp( const string& path ) throw(file_error)
+void IIPImage::updateTimestamp( const string& path )
 {
   // Get a modification time for our image
   struct stat sb;
