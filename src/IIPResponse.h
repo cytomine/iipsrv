@@ -1,7 +1,7 @@
 /*
     IIP Response Handler Class
 
-    Copyright (C) 2003-2017 Ruven Pillay.
+    Copyright (C) 2003-2018 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 #endif
 
 // Fix missing snprintf in Windows
-#if _MSC_VER
+#if defined _MSC_VER && _MSC_VER<1900
 #define snprintf _snprintf
 #endif
 
@@ -67,7 +67,7 @@ class IIPResponse{
 
 
   /// Set the Last Modified header
-  /** @param m Last modifed date as a HTTP RFC 1123 formatted timestamp */
+  /** @param m Last modified date as a HTTP RFC 1123 formatted timestamp */
   void setLastModified( const std::string& m ) { modified = "Last-Modified: " + m; };
 
 
