@@ -7,7 +7,7 @@
     Culture of the Czech Republic.
 
 
-    Copyright (C) 2009-2017 IIPImage.
+    Copyright (C) 2009-2018 IIPImage.
     Author: Ruven Pillay
 
     This program is free software; you can redistribute it and/or modify
@@ -52,7 +52,7 @@ unsigned int get_nprocs_conf(){
 
 
 #include "Timer.h"
-//#define DEBUG 1
+#define DEBUG 0
 
 
 using namespace std;
@@ -104,7 +104,20 @@ void KakaduImage::openImage()
 
   // Set up the cache size and allow restarting
   //codestream.augment_cache_threshold(1024);
-  codestream.set_fast();
+
+  // Set Kakadu read mode
+  switch( kdu_readmode ) {
+    case KDU_FUSSY:
+      codestream.set_fussy();
+      break;
+    case KDU_RESILIENT:
+      codestream.set_resilient();
+      break;
+    case KDU_FAST:
+    default:
+      codestream.set_fast();
+  }
+
   codestream.set_persistent();
   //  codestream.enable_restart();
 
@@ -380,7 +393,7 @@ RawTile KakaduImage::getTile( int seq, int ang, unsigned int res, int layers, un
   else if( obpc == 8 ) rawtile.data = new unsigned char[tw*th*channels];
   else throw file_error( "Kakadu :: Unsupported number of bits" );
 
-  rawtile.dataLength = tw*th*channels*obpc/8;
+  rawtile.dataLength = tw*th*channels*(obpc/8);
   rawtile.filename = getImagePath();
   rawtile.timestamp = timestamp;
 
@@ -417,7 +430,7 @@ RawTile KakaduImage::getRegion( int seq, int ang, unsigned int res, int layers, 
   else if( obpc == 8 ) rawtile.data = new unsigned char[w*h*channels];
   else throw file_error( "Kakadu :: Unsupported number of bits" );
 
-  rawtile.dataLength = w*h*channels*obpc/8;
+  rawtile.dataLength = w*h*channels*(obpc/8);
   rawtile.filename = getImagePath();
   rawtile.timestamp = timestamp;
 
@@ -647,7 +660,7 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
 	}
       }
 
-      memcpy( b2, b1, tw * stripe_heights[0] * channels * obpc/8 );
+      memcpy( b2, b1, tw * stripe_heights[0] * channels * (obpc/8) );
 
       // Advance our output buffer pointer
       index += tw * stripe_heights[0] * channels;
@@ -687,7 +700,7 @@ void KakaduImage::process( unsigned int res, int layers, int xoffset, int yoffse
 	}
       }
     }
-    else memcpy( d, buffer, tw*th*channels * obpc/8 );
+    else memcpy( d, buffer, tw*th*channels * (obpc/8) );
 
     // Delete our local buffer
     delete_buffer( buffer );
