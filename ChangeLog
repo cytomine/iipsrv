@@ -1,3 +1,52 @@
+23/07/2018:
+	- Fixed incorrect big endian TIFF file signature.
+
+
+27/04/2018:
+	- Updates to Windows build files: removed Kakadu dependencies.
+	- Added version check for snprintf Windows redefinition as this is now
+	  supported in recent versions of Visual Studio.
+
+
+18/12/2017:
+	- Added missing snprintf definition for Windows in JPEGCompressor.h
+
+
+14/12/2017:
+	- Added the "max" parameter for the size section to the IIIF parser ahead of
+	  deprecation in IIIF version 3.0: http://iiif.io/api/image/2.1/#size
+	- Fixed some spelling mistakes in various files - thanks to Stefan Weil
+
+
+13/12/2017:
+	- Update to configure.ac to fix compilation with Kakadu 7.10
+
+
+28/11/2017:
+	- Modified bilinear interpolation code to avoid risk of unallocated buffer
+	  reads at edges and to use replicated pixels.
+
+
+26/11/2017:
+	- Removed exception specifications from the IIPImage and Compressor class
+	  declarations as well as from their derived classes. Dynamic exception
+	  specifications are deprecated in C++11 onwards. See for rationale and details:
+	  http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2010/n3051.html
+
+
+25/11/2017:
+	- Added missing RED, GREEN and BLUE colormap implementations to Transforms.cc
+
+
+24/11/2017:
+	- Added input validation for SPECTRA, PFL and MINMAX commands to avoid
+	  possible access to unmapped memory - thanks to John Heasman at DocuSign.
+
+
+17/11/2017:
+	- Added a check to KakaduImage.cc for zero-sized regions
+
+
 04/10/2017:
 	- Set an upper size limit to ICC profiles accepted for embedding
 
@@ -911,7 +960,7 @@
 
 
 06/06/2008:
-	- Modifed the way the image dimensions are stored in the IIPImage class.
+	- Modified the way the image dimensions are stored in the IIPImage class.
 	  Rather than simply storing the max size, a vector of available dimensions
 	  is saved making it easier to get the size for a given resolution.
 
