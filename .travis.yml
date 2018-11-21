@@ -1,13 +1,59 @@
+sudo: required
+
+services:
+  - docker
+
 language: cpp
 
-os:
-  - linux
-  - osx
+compiler: clang
 
-compiler:
-  - clang
-  - gcc
+env:
+  global:
+    - NAMESPACE=cytomineuliege
+    - FROM_VERSION=v1.2.0
+    - DOCKER_USERNAME=cytomineulg
+    - secure: "Bg8yNS5Jo+BIypTAJcsD4p0tK15xSHcxA2R1p6kq6Rc2DAvfCBnQWdTWGWf2pWn/MT0Udf/qOLSnQjbJ1M04Bfuv6bYOk57Qd0G0IT17Tbde83f1AaMPr+KxaoUflAQ8rJfIzV2vBlIP8nm4+4fWOQGpg/wHrCf1fo3APB2Ya/m7p14LkDD/eFIIEy3lVJGi/CWTXB6Z8w0uJ+rE2k3XPnxs969YWMkmEZFKXLPrpnL29xN31tNdR1sDJ2vwjrltWTKzlgKOqbJ3tb7+IUiVG8XfGZ3cJNsJIjSVLgog/BoXMYIwf24Htk4pAZEuAfCD6ffpDZaHRD86WT9wog+8O8s1CmBjI8YmVRN0JvAUffOvEOuNMFcJJnK/tAD/mFtbeWQ/Ced4TbpPSqLLObo7xNh1iVF0qdAXQnXGj+YRaRNs25tlxxGGmtY4VbkiBvZIejnMa7fFJXzwkgBa0sNIcTyNP8B1r5GyWd0q6WYlvMeQEOhO98+E5cTYIn0K9lWBQiWpOZzsj2x8i7ubwEPv2PaFcJhtEw6wlow56yF8b1wewb4+g2orKXUDebbFcJ3d6tv9PFVHIM36BKHwkCKm7ubwXnUOS7aq2jkNYPsH79QILi7+dE73ULkEvvQb4Seww7vzpM5MWzpecaodfCVnBfqwPiqLlQLSzRRt5+dxDlA="
 
 script:
   - ./autogen.sh
   - ./configure && make
+
+after_success:
+  - git fetch --tags
+  - export VERSION=$(cat configure.ac | grep AC_INIT)
+  - export VERSION=${VERSION#AC_INIT(iipsrv,}
+  - export VERSION=${VERSION%)}
+  - export DEPLOY=false
+  - >
+    if [[ ! $(git tag -l v$VERSION) ]]; then
+      git config --local user.name "$(git log -1 --pretty=format:'%an')";
+      git config --local user.email "$(git log -1 --pretty=format:'%ae')";
+      git tag "v$VERSION";
+      export DEPLOY=true;
+      echo "Deploy with version $VERSION";
+
+      cd docker && tar -cvf v$VERSION.tar.gz ../;
+      docker build --build-arg RELEASE_PATH="." --build-arg FROM_NAMESPACE=$NAMESPACE --build-arg FROM_VERSION=$FROM_VERSION -t $NAMESPACE/iip-cyto:latest -t $NAMESPACE/iip-cyto:v$VERSION docker/
+    fi;
+
+deploy:
+  - provider: script
+    script: >
+      echo $VERSION &&
+      docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" &&
+      docker push $NAMESPACE/iip-cyto:v$VERSION &&
+      echo "Done."
+    skip_cleanup: true
+    on:
+      condition: $DEPLOY = true
+  - provider: releases
+    api_key:
+      secure: miiPlT95Bg4WR/Mrebw8sEWhD+HCMHQCO3olx+u2B8Uk308DCgiHoMwNwZLrm3E02SlbndPka8Jp8olmqNzUMq3kab3HoILVfE+SU8vLxgH0Npm+3MW/N6QGUpp02cAM1tzJi1NxNdKD70UzZ+LYZ8b6W5hzfnYnPtIW0lxEWG6mqkGjahAfc21QcZELWlAnnTAHSZwzyovcc3kVyhMRwdxUYbdwCu7qQ8/dgjZtB/TthlKJp2oHDvbCle7BaZCGTBKZArBNMKuPylo+c8xEH2iauvaxiCmvgJYdGAOyaPtE7Y6cqwLVOSDwxFury/apldVb0XzZ+eZzOPKh1elS5kZQJ/mXL4uVkf7cp0lDUuoeON0il4bzZqXUSdlcPUaQ/cd2ZQ3sSq/gvOua53tgnsuWQ/17sRgFUvL4euoUN11dLGwAYwFRRWOqZINoDkpg4TMO0DqmYSS8bU95JKRr3uS117NtcbLalCK1Y5VrqZJQ6AM4vNBuR36eY2id1kqHhCVsiy5Y1wSZpzUQPHakKCB8APhYuE65m+M7blx2oa72mFlxRvvT4jjhQ+VNq0ogl0sFSv195PpecWUITJrIkqVIfEObWO7WthOGcL9p4PR2F7A5EpIf08o+pSjLQGQseQ6QP3jzzOptC4fUA8DOvMg1PyfGRmHg2ETcGQSGxQ0=
+    skip_cleanup: true
+    on:
+      condition: $DEPLOY = true
+
+notifications:
+  email: false
+  slack:
+    secure: TrdyGx56LOXEzrMxZgMhnYwpLQjIX3fL40YYujq40W66Rcis6nm2SP4i0By3fOSwwKcRwP8HXvs219sZddL3KJSZ0ormMvLHVjo9NNEbUAHqWVUBnaNJjF6ANmRFpuIKkVRTu2LQHaJhjMFyrKg8VVRAxNR1keaOsVeb4/U6gLF9LqfMciz56TtoDzfbMfB0V7l+RtUfRpeKGjDqp+lAEIzueSRItK49hP4gACGxJEMACIG+z1PZNLtVTnV6DokqnVmhUBIo9+ikLmU8g48Ark6hmj0JC5zZHK+LwZUhlMeJmPsJMydJ0ZPiOzcdPhQoLZC5looGFYPru2Igu3GTIM/hoTCDIYUCYRStr0vRF4niEEWMXKp9NJUQHkK0RwPCsuc0iwl1Jaeh9+qSEUeEW3tYyRgNwBPI4YK/XFt1/oDHufi8xU50xVTysSOxVJWbZ29OVdJ4LtWrF5rdKiFfl54sAqEnVREp8QcvRFXLMwL89cW5omi4xqmlojLm1pS/6DthlrED7dMz8qQi43shOPQbVqA+TRRUXl7jPo4DNTbI/8KfJGXg76scytZB4qUx4t6j2C9YxllHEZf7nlNyvHQzTLrcNOB6kxYFOibdrWIm1TycpbIBkb3l/1ZP0MgVFLpEu89eYcCpk29g6QkdyMU6Pb69avq4c9HUk0WhGME=
