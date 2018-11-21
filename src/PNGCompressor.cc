@@ -58,7 +58,7 @@ png_cexcept_error( png_structp png_ptr, png_const_charp msg ) {
   }
 }
 
-void PNGCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_height ) throw( string ) {
+void PNGCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_height ) {
 
   ofstream ofs;
   // create an empty test file first
@@ -141,7 +141,7 @@ void PNGCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_
  */
 unsigned int
 PNGCompressor::CompressStrip( unsigned char *inputbuff, unsigned char *outputbuff,
-                              unsigned int tile_height ) throw( string ) {
+                              unsigned int tile_height ) {
 
   png_uint_32 ulRowBytes = width * channels * bpc / 8;
 
@@ -158,7 +158,7 @@ PNGCompressor::CompressStrip( unsigned char *inputbuff, unsigned char *outputbuf
   return dest.size;
 }
 
-unsigned int PNGCompressor::Finish( unsigned char *o ) throw( string ) {
+unsigned int PNGCompressor::Finish( unsigned char *o ) {
 
   setOutputBuffer( o, bpc/8*width*channels*height+65536 );
 
@@ -172,7 +172,7 @@ unsigned int PNGCompressor::Finish( unsigned char *o ) throw( string ) {
 }
 
 
-int PNGCompressor::Compress( RawTile &rawtile ) throw( string ) {
+unsigned int PNGCompressor::Compress( RawTile &rawtile ) {
 
 //  logfile << "PNGCompressor::Compress - !!!!!!!! NOT IMPLEMENTED - IIP DOESN'T !!!!!!" << endl;
 

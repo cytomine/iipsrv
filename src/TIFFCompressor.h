@@ -39,11 +39,11 @@ public:
     tiff_compression = compressor;
   }
 
-  void InitCompression( const RawTile& rawtile, unsigned int strip_height ) throw (std::string);
+  void InitCompression( const RawTile& rawtile, unsigned int strip_height );
 
-  unsigned int CompressStrip( unsigned char* s, unsigned char* o, unsigned int tile_height ) throw (std::string);
+  unsigned int CompressStrip( unsigned char* s, unsigned char* o, unsigned int tile_height );
 
-  unsigned int Finish( unsigned char* output ) throw (std::string);
+  unsigned int Finish( unsigned char* output );
 
   const char* getMimeType() { return "image/tiff"; };
 
