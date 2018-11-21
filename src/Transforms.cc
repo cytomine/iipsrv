@@ -750,7 +750,7 @@ void Transform::contrast( RawTile& in, float c ){
 
 
 //  Function to clip data to b bit
-void filter_clip( RawTile& in, unsigned int b ) {
+void Transform::clip( RawTile& in, unsigned int b ) {
   unsigned long np = in.width * in.height * in.channels;
   float* infptr = (float*)in.data;
   float maxvalue = pow(2, b);

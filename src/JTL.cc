@@ -218,7 +218,7 @@ void JTL::send( Session* session, int resolution, int tile ){
     if (session->loglevel >= 4) {
       *(session->logfile) << "JTL :: Converting to " << b << "bit";
     }
-    filter_clip( rawtile, b );
+    session->processor->clip( rawtile, b );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
     }
