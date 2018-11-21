@@ -32,7 +32,7 @@ after_success:
       export DEPLOY=true;
       echo "Deploy with version $VERSION";
 
-      cd docker && tar -cvf v$VERSION.tar.gz ../;
+      cd docker && tar -cvf v$VERSION.tar.gz ../ && cd ..;
       docker build --build-arg RELEASE_PATH="." --build-arg FROM_NAMESPACE=$NAMESPACE --build-arg FROM_VERSION=$FROM_VERSION -t $NAMESPACE/iip-cyto:latest -t $NAMESPACE/iip-cyto:v$VERSION docker/
     fi;
 
