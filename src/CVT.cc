@@ -286,7 +286,7 @@ void CVT::send( Session* session ){
       b = (original_bpc < b) ? original_bpc : b;
     }
 #endif
-    session->processor->contrast( complete_image, b );
+    session->processor->clip( complete_image, b );
     if( session->loglevel >= 5 ){
       *(session->logfile) << "CVT :: Converting to " << b << "bit in "
                           << function_timer.getTime() << " microseconds" << endl;
