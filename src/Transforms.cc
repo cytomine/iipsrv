@@ -753,7 +753,7 @@ void Transform::contrast( RawTile& in, float c ){
 void Transform::clip( RawTile& in, unsigned int b ) {
   unsigned long np = in.width * in.height * in.channels;
   float* infptr = (float*)in.data;
-  float maxvalue = pow(2, b);
+  float maxvalue = pow(2, b) - 1.0;
   void* vbuffer;
 
   if ( b > 16) {
