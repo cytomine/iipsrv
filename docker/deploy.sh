@@ -26,13 +26,9 @@ echo "  create 640 root root"           >> /etc/logrotate.d/iip
 echo "  su root root"                   >> /etc/logrotate.d/iip
 echo "}"                                >> /etc/logrotate.d/iip
 
-# IIP configuration options
-export VERBOSITY=10
-export LOGFILE=/tmp/iip.out
 . /tmp/iip-configuration.sh
 sysctl -w net.core.somaxconn=2048
 
-env
 
 # Configure Nginx
 PORT=9000
@@ -46,12 +42,15 @@ mv /tmp/nginx.conf.sample /usr/local/nginx/conf/nginx.conf
 echo "start nginx"
 /usr/local/nginx/sbin/nginx &
 
-# Spawn FCGI processes
-COUNTER=0
-while [  $COUNTER -lt $NB_IIP_PROCESS ]; do
-    echo "spawn process"
-    spawn-fcgi -f /opt/iipsrv/src/iipsrv.fcgi -a 127.0.0.1 -p $(($PORT+$COUNTER))
-    let COUNTER=COUNTER+1
-done
+/tmp/start-iip.sh
+
+touch /tmp/crontab
+echo "NB_IIP_PROCESS=$NB_IIP_PROCESS" >> /tmp/crontab
+echo "*/1 * * * * /bin/bash /tmp/check-status.sh >> /tmp/cron.out" >> /tmp/crontab
+crontab /tmp/crontab
+rm /tmp/crontab
+
+service rsyslog restart
+service cron restart
 
 tail -F /tmp/iip.out

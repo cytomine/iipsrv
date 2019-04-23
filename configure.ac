@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT(iipsrv,1.3.2)
+AC_INIT(iipsrv,1.4.0)
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
 

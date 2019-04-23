@@ -20,6 +20,7 @@ FROM ${FROM_NAMESPACE}/base:$FROM_VERSION
 
 RUN apt-get -y update && \
     apt-get install -y \
+      cron \
       git \
       libjpeg8-dev \
       libmemcached-dev \
@@ -30,6 +31,7 @@ RUN apt-get -y update && \
       psmisc \
       autoconf \
       libtool \
+      rsyslog \
       spawn-fcgi \
       software-properties-common && \
       apt-get -y build-dep openslide && \
@@ -70,6 +72,12 @@ RUN cd /opt/iipsrv && \
 
 COPY deploy.sh /tmp/deploy.sh
 RUN chmod +x /tmp/deploy.sh
+
+COPY start-iip.sh /tmp/start-iip.sh
+RUN chmod +x /tmp/start-iip.sh
+
+COPY check-status.sh /tmp/check-status.sh
+RUN chmod +x /tmp/check-status.sh
 
 RUN ldconfig -v
 
