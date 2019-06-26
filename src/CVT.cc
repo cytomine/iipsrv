@@ -417,7 +417,7 @@ void CVT::send( Session* session ){
 
   // Initialise our output compression object
   unsigned int strip_height = 128;
-  compressor->InitCompression( complete_image, strip_height );
+  compressor->InitCompression( complete_image, (session->view->output_format != TIFF_) ? resampled_height : strip_height );
 
 
   len = compressor->getHeaderSize();
