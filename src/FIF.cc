@@ -25,6 +25,10 @@
 #include "Environment.h"
 #include "TPTImage.h"
 
+#ifdef HAVE_OPENSLIDE
+#include "OpenSlideImage.h"
+#endif
+
 #ifdef HAVE_KAKADU
 #include "KakaduImage.h"
 #endif
@@ -38,6 +42,17 @@
 
 
 using namespace std;
+
+
+
+// Internal utility function to decode hex values
+static char hexToChar( char first, char second ){
+  int digit;
+  digit = (first >= 'A' ? ((first & 0xDF) - 'A') + 10 : (first - '0'));
+  digit *= 16;
+  digit += (second >= 'A' ? ((second & 0xDF) - 'A') + 10 : (second - '0'));
+  return static_cast<char>(digit);
+}
 
 
 
@@ -124,6 +139,12 @@ void FIF::run( Session* session, const string& src ){
       if( session->loglevel >= 2 ) *(session->logfile) << "FIF :: TIFF image detected" << endl;
       *session->image = new TPTImage( test );
     }
+#ifdef HAVE_OPENSLIDE
+    else if ( format == OPENSLIDE ) {
+      if( session->loglevel >= 2 ) *(session->logfile) << "FIF :: OpenSlide image detected" << endl;
+      *session->image = new OpenSlideImage( test );
+    }
+#endif
 #if defined(HAVE_KAKADU) || defined(HAVE_OPENJPEG)
     else if( format == JPEG2000 ){
       if( session->loglevel >= 2 )

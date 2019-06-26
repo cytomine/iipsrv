@@ -67,10 +67,10 @@ class View{
   bool shaded;                                /// Whether to use shading view
   int shade[3];                               /// Shading incident light angles (x,y,z)
   bool cmapped;                               /// Whether to modify colormap
-  enum cmap_type cmap;                        /// colormap
+  std::string cmap;                           /// colormap
   bool inverted;                              /// Whether to invert colormap
-  int max_layers;			      /// Maximum number of quality layers allowed
-  int layers;			              /// Number of quality layers
+  int max_layers;			                        /// Maximum number of quality layers allowed
+  int layers;			                            /// Number of quality layers
   ColourSpaces colourspace;                   /// Requested colourspace
   std::vector< std::vector<float> > ctw;      /// Colour twist matrix
   int flip;                                   /// Flip (1=horizontal, 2=vertical)
@@ -78,6 +78,7 @@ class View{
   bool allow_upscaling;                       /// Indicate whether images may be served larger than the source file
   bool embed_icc;                             /// Indicate whether we should embed ICC profiles
   CompressionType output_format;              /// Requested output format
+  unsigned int output_bpc;                    /// Requested output bit per channels
   float contrast;                             /// Contrast adjustment requested by CNT command
   float gamma;                                /// Gamma adjustment requested by GAM command
   bool equalization;                          /// Whether to perform histogram equalization
@@ -94,7 +95,7 @@ class View{
     contrast = 1.0; gamma = 1.0;
     xangle = 0; yangle = 90;
     shaded = false; shade[0] = 0; shade[1] = 0; shade[2] = 0;
-    cmapped = false; cmap = HOT; inverted = false;
+    cmapped = false; cmap = ""; inverted = false;
     max_layers = 0; layers = 0;
     rotation = 0.0; flip = 0;
     maintain_aspect = true;
@@ -103,6 +104,7 @@ class View{
     embed_icc = true;
     output_format = JPEG;
     equalization = false;
+    output_bpc = 8;
   };
 
 

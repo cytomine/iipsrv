@@ -34,6 +34,7 @@
 #include "Writer.h"
 #include "Cache.h"
 #include "Watermark.h"
+#include "TIFFCompressor.h"
 #include "Transforms.h"
 #include "Logger.h"
 #ifdef HAVE_PNG
@@ -65,6 +66,8 @@ typedef HASHMAP <std::string,IIPImage> imageCacheMapType;
 /// Structure to hold our session data
 struct Session {
   IIPImage **image;
+  RawCompressor* raw;
+  TIFFCompressor* tiff;
   JPEGCompressor* jpeg;
 #ifdef HAVE_PNG
   PNGCompressor* png;
@@ -146,6 +149,7 @@ class OBJ : public Task {
   void min_max_values();
   void resolutions();
   void metadata( std::string field );
+  void image_properties();
 
 };
 
@@ -338,6 +342,13 @@ class IIIF : public Task {
 
 /// Color Twist Command
 class CTW : public Task {
+ public:
+  void run( Session* session, const std::string& argument );
+};
+
+
+/// Output bit Command
+class BIT : public Task {
  public:
   void run( Session* session, const std::string& argument );
 };

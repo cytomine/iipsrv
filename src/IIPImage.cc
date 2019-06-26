@@ -23,6 +23,10 @@
 
 #include "IIPImage.h"
 
+#ifdef HAVE_OPENSLIDE
+#include "OpenSlideImage.h"
+#endif
+
 #ifdef HAVE_GLOB_H
 #include <glob.h>
 #endif
@@ -114,25 +118,37 @@ void IIPImage::testImageType()
     isFile = true;
     timestamp = sb.st_mtime;
 
-    // Magic file signature for JPEG2000
-    static const unsigned char j2k[10] = {0x00,0x00,0x00,0x0C,0x6A,0x50,0x20,0x20,0x0D,0x0A};
-
-    // Magic file signatures for TIFF (See http://www.garykessler.net/library/file_sigs.html)
-    static const unsigned char stdtiff[3] = {0x49,0x20,0x49};       // TIFF
-    static const unsigned char lsbtiff[4] = {0x49,0x49,0x2A,0x00};  // Little Endian TIFF
-    static const unsigned char msbtiff[4] = {0x4D,0x4D,0x00,0x2A};  // Big Endian TIFF
-    static const unsigned char lbigtiff[4] = {0x4D,0x4D,0x00,0x2B}; // Little Endian BigTIFF
-    static const unsigned char bbigtiff[4] = {0x49,0x49,0x2B,0x00}; // Big Endian BigTIFF
-
-    // Compare our header sequence to our magic byte signatures
-    if( memcmp( header, j2k, 10 ) == 0 ) format = JPEG2000;
-    else if( memcmp( header, stdtiff, 3 ) == 0
-	     || memcmp( header, lsbtiff, 4 ) == 0 || memcmp( header, msbtiff, 4 ) == 0
-	     || memcmp( header, lbigtiff, 4 ) == 0 || memcmp( header, bbigtiff, 4 ) == 0 ){
-      format = TIF;
+#ifdef HAVE_OPENSLIDE
+    // Dirty hack to detect OpenSlide format, since some formats have same file signatures
+    // than TIFF.
+    int dot = imagePath.find_last_of( '.' );
+    suffix = imagePath.substr( dot + 1, imagePath.length() );
+    transform( suffix.begin(), suffix.end(), suffix.begin(), ::tolower );
+    if (find(begin(OPENSLIDE_EXTENSIONS), end(OPENSLIDE_EXTENSIONS), suffix) != end(OPENSLIDE_EXTENSIONS)) {
+      format = OPENSLIDE;
     }
-    else format = UNSUPPORTED;
+    else
+#endif
+    {
+      // Magic file signature for JPEG2000
+      static const unsigned char j2k[10] = {0x00,0x00,0x00,0x0C,0x6A,0x50,0x20,0x20,0x0D,0x0A};
 
+      // Magic file signatures for TIFF (See http://www.garykessler.net/library/file_sigs.html)
+      static const unsigned char stdtiff[3] = {0x49,0x20,0x49};       // TIFF
+      static const unsigned char lsbtiff[4] = {0x49,0x49,0x2A,0x00};  // Little Endian TIFF
+      static const unsigned char msbtiff[4] = {0x4D,0x4D,0x00,0x2A};  // Big Endian TIFF
+      static const unsigned char lbigtiff[4] = {0x4D,0x4D,0x00,0x2B}; // Little Endian BigTIFF
+      static const unsigned char bbigtiff[4] = {0x49,0x49,0x2B,0x00}; // Big Endian BigTIFF
+
+      // Compare our header sequence to our magic byte signatures
+      if( memcmp( header, j2k, 10 ) == 0 ) format = JPEG2000;
+      else if( memcmp( header, stdtiff, 3 ) == 0
+               || memcmp( header, lsbtiff, 4 ) == 0 || memcmp( header, msbtiff, 4 ) == 0
+               || memcmp( header, lbigtiff, 4 ) == 0 || memcmp( header, bbigtiff, 4 ) == 0 ){
+        format = TIF;
+      }
+      else format = UNSUPPORTED;
+    }
   }
   else{
 
@@ -310,8 +326,8 @@ const string IIPImage::getFileName( int seq, int ang )
   else{
     // The angle or spectral band indices should be a minimum of 3 digits when padded
     snprintf( name, 1024,
-	      "%s%s%03d_%03d.%s", (fileSystemPrefix+imagePath).c_str(), fileNamePattern.c_str(),
-	      seq, ang, suffix.c_str() );
+        "%s%s%03d_%03d.%s", (fileSystemPrefix+imagePath).c_str(), fileNamePattern.c_str(),
+        seq, ang, suffix.c_str() );
     return string( name );
   }
 }

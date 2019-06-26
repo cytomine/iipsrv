@@ -66,8 +66,7 @@ struct Transform {
   /** @param in tile data to be converted
       @param cmap color map to apply.
   */
-  void cmap( RawTile& in, enum cmap_type cmap );
-
+  void cmap( RawTile& in, std::string cmap );
 
   /// Function to invert colormaps
   /** @param in tile data to be adjusted
@@ -88,11 +87,18 @@ struct Transform {
   void LAB2sRGB( RawTile& in );
 
 
-  /// Function to apply a contrast adjustment and clip to 8 bit
+  /// Function to apply a contrast adjustment
   /** @param in tile data to be adjusted
       @param c contrast value
   */
   void contrast( RawTile& in, float c );
+
+
+  /// Clip data to b bit
+  /** @param in tile data to be adjusted
+   *  @param b number of bits
+   */
+  void clip( RawTile& in, const unsigned int b );
 
 
   /// Apply a gamma correction

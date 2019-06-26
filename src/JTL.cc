@@ -264,13 +264,23 @@ void JTL::send( Session* session, int resolution, int tile ){
     }
 
 
-    // Apply any contrast adjustments and/or clip to 8bit from 16 or 32 bit
+    // Apply any contrast adjustments
     float contrast = session->view->contrast;
     if( session->loglevel >= 4 ){
-      *(session->logfile) << "JTL :: Applying contrast of " << contrast << " and converting to 8 bit";
+      *(session->logfile) << "JTL :: Applying contrast of " << contrast;
       function_timer.start();
     }
     session->processor->contrast( rawtile, contrast );
+    if( session->loglevel >= 4 ){
+      *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
+    }
+
+    // clip from 16bit or 32bit to 8bit if needed
+    unsigned int b = 8;
+    if (session->loglevel >= 4) {
+      *(session->logfile) << "JTL :: Converting to " << b << "bit";
+    }
+    session->processor->clip( rawtile, b );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
     }

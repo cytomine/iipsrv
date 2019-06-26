@@ -21,6 +21,7 @@
 
 #include "Task.h"
 #include "Tokenizer.h"
+#include "URL.h"
 #include <cstdlib>
 #include <algorithm>
 
@@ -64,6 +65,7 @@ Task* Task::factory( const string& t ){
   else if( type == "deepzoom" ) return new DeepZoom;
   else if( type == "ctw" ) return new CTW;
   else if( type == "col" ) return new COL;
+  else if( type == "bit" ) return new BIT;
   else if( type == "iiif" ) return new IIIF;
   else return NULL;
 
@@ -194,12 +196,22 @@ void CVT::run( Session* session, const string& src ){
   string argument = src;
   transform( argument.begin(), argument.end(), argument.begin(), ::tolower );
 
-  // For the moment, only deal with JPEG. If we have specified something else, give a warning
+  // For the moment, only deal with JPEG and TIFF.
+  // If we have specified something else, give a warning
   // and send JPEG anyway
-  if( argument != "jpeg" ){
-    if( session->loglevel >= 1 ) *(session->logfile) << "CVT :: Unsupported request: '" << argument << "'. Sending JPEG." << endl;
+  if ( argument == "tiff" ) {
+    session->view->output_format = TIFF_;
+    if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: TIFF output" << endl;
   }
-  else{
+#ifdef HAVE_PNG
+  else if ( argument == "png" ) {
+    session->view->output_format = PNG;
+    if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: PNG output" << endl;
+  }
+#endif
+  else {
+    if( argument != "jpeg" && session->loglevel >= 1 )
+      *(session->logfile) << "CVT :: Unsupported request: '" << argument << "'. Sending JPEG." << endl;
     session->view->output_format = JPEG;
     if( session->loglevel >= 3 ) *(session->logfile) << "CVT :: JPEG output" << endl;
   }
@@ -378,22 +390,33 @@ void CMP::run( Session* session, const string& argument ){
   /* The argument is the colormap type: available colormaps are
      HOT, COLD, JET, BLUE, GREEN, RED
    */
+  if( session->loglevel >= 2 ) *(session->logfile) << "CMP handler reached" << endl;
+  if( session->loglevel >= 3 ) *(session->logfile) << "CMP :: requested colormap is " << argument << endl;
+  session->view->cmapped = true;
 
   // Convert to lower case in order to do our string comparison
   string ctype = argument;
   transform( ctype.begin(), ctype.end(), ctype.begin(), ::tolower );
+  if (ctype == "hot" || ctype == "cold" || ctype == "jet"
+      || ctype == "blue" || ctype == "red" || ctype == "green") {
+    session->view->cmap = ctype;
+  }
+  else {
+    URL url( argument );
+    ctype = url.decode();
 
-  if( session->loglevel >= 2 ) *(session->logfile) << "CMP handler reached" << endl;
-  if( session->loglevel >= 3 ) *(session->logfile) << "CMP :: requested colormap is " << ctype << endl;
-  session->view->cmapped = true;
+    // Filter out any ../ to prevent users by-passing any file system prefix
+    unsigned int n;
+    while( (n=ctype.find("../")) < ctype.length() ) ctype.erase(n,3);
 
-  if (ctype=="hot") session->view->cmap = HOT;
-  else if (ctype=="cold") session->view->cmap = COLD;
-  else if (ctype=="jet") session->view->cmap = JET;
-  else if (ctype=="blue") session->view->cmap = BLUE;
-  else if (ctype=="green") session->view->cmap = GREEN;
-  else if (ctype=="red") session->view->cmap = RED;
-  else session->view->cmapped = false;
+    ifstream f(ctype.c_str());
+    if (!f.good()) {
+      session->view->cmapped = false;
+      if ( session->loglevel >= 3 ) *(session->logfile) << "CMP :: requested custom colormap does not exist" << endl;
+    }
+    else
+      session->view->cmap = ctype;
+  }
 }
 
 
@@ -495,5 +518,26 @@ void COL::run( Session* session, const string& argument ){
 
   if( ctype == "grey" || ctype == "gray" ) session->view->colourspace = GREYSCALE;
   else if( ctype == "binary" ) session->view->colourspace = BINARY;
-  
+
+}
+
+
+void BIT::run( Session *session, const std::string &argument ) {
+  if( argument.length() ){
+
+    int factor = atoi( argument.c_str() );
+
+    if( session->loglevel >= 2 ) *(session->logfile) << "BIT handler reached" << endl;
+    if( session->loglevel >= 3 ) *(session->logfile) << "BIT :: requested output bits per channel is " << factor << endl;
+
+    // Check the value is realistic
+    if( factor != 8 && factor != 16 && factor != 32 ){
+      if( session->loglevel >= 2 ){
+        *(session->logfile) << "BIT :: Output bits requested " << argument
+                            << " forbidden. Must be 8/16/32." << endl;
+      }
+    }
+
+    session->view->output_bpc = factor;
+  }
 }

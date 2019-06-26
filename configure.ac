@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT(iipsrv,1.1,ruven@users.sourceforge.net)
+AC_INIT(iipsrv,1.4.0)
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
 
@@ -321,23 +321,46 @@ fi
 #     Check for PNG support
 #************************************************************
 
-#AC_CHECK_HEADERS( png.h,
-#	AC_SEARCH_LIBS(
-#		png_create_read_struct,
-#		png,
-#		PNG=true,
-#		PNG=false )
-#)
+AC_CHECK_HEADERS( png.h,
+	AC_SEARCH_LIBS(
+		png_create_read_struct,
+		png,
+		PNG=true,
+		PNG=false )
+)
 
-# Disable PNG for now
-#PNG=false
+# PNG=false
 
-#if test "x${PNG}" = xtrue; then
-#	AM_CONDITIONAL([ENABLE_PNG], [true])
-#	AC_DEFINE(HAVE_PNG)
-#else
-#	AM_CONDITIONAL([ENABLE_PNG], [false])
-#fi
+if test "x${PNG}" = xtrue; then
+	AM_CONDITIONAL([ENABLE_PNG], [true])
+	AC_DEFINE(HAVE_PNG)
+else
+	AM_CONDITIONAL([ENABLE_PNG], [false])
+fi
+
+
+#************************************************************
+#     Check for OpenSlide support
+#************************************************************
+AC_LANG([C])
+AC_CHECK_HEADERS( openslide/openslide.h,
+	AC_SEARCH_LIBS(
+		openslide_open,
+		openslide,
+		OPENSLIDE=true,
+		OPENSLIDE=false )
+)
+
+# OPENSLIDE=false
+
+if test "x${OPENSLIDE}" = xtrue; then
+	AM_CONDITIONAL([ENABLE_OPENSLIDE], [true])
+	AC_DEFINE(HAVE_OPENSLIDE)
+else
+	AM_CONDITIONAL([ENABLE_OPENSLIDE], [false])
+fi
+
+
 
 
 
@@ -410,9 +433,10 @@ Options Enabled:
  Memcached  :  ${MEMCACHED}
  JPEG2000   :  ${JPEG2000_CODEC}
  OpenMP     :  ${OPENMP}
+ PNG        :  ${PNG}
+ OpenSlide  :  ${OPENSLIDE}
  Loggers    :  ${LOGGING}
 ])
 
-# PNG Output:			${PNG}
 # LitleCMS:			${LCMS}
 #])

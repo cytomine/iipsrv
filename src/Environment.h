@@ -21,6 +21,7 @@
 #ifndef _ENVIRONMENT_H
 #define _ENVIRONMENT_H
 
+#define NO_FILTER_DEFINED -999;
 
 /* Define some default values
  */
@@ -281,6 +282,128 @@ class Environment {
     }
     else readmode = KAKADU_READMODE;
     return readmode;
+  }
+
+#ifdef HAVE_PNG
+
+  /****************************************
+   from zlib.h
+   #define Z_NO_COMPRESSION         0
+   #define Z_BEST_SPEED             1
+   #define Z_BEST_COMPRESSION       9
+   #define Z_DEFAULT_COMPRESSION  (-1)
+  ****************************************/
+  static int getPNGCompressionLevel(){
+    int png_compression_level = Z_NO_COMPRESSION;
+    char *envval = getenv( "PNG_COMPRESSION_LEVEL" );
+    if ( envval != NULL ) {
+      string envpara = string(envval);
+      if ( envpara.compare("Z_BEST_SPEED") )
+        png_compression_level = Z_BEST_SPEED;
+      else if ( envpara.compare("Z_BEST_COMPRESSION") )
+        png_compression_level = Z_BEST_COMPRESSION;
+      else if ( envpara.compare("Z_DEFAULT_COMPRESSION") )
+        png_compression_level = Z_DEFAULT_COMPRESSION;
+    }
+    return png_compression_level;
+  }
+
+  /****************************************
+   from png.h
+   #define PNG_NO_FILTERS     0x00
+   #define PNG_FILTER_NONE    0x08
+   #define PNG_FILTER_SUB     0x10
+   #define PNG_FILTER_UP      0x20
+   #define PNG_FILTER_AVG     0x40
+   #define PNG_FILTER_PAETH   0x80
+   #define PNG_ALL_FILTERS (PNG_FILTER_NONE | PNG_FILTER_SUB | PNG_FILTER_UP | \
+                            PNG_FILTER_AVG | PNG_FILTER_PAETH)
+  ****************************************/
+
+  static int PNGFilterTypeToInt( const char *filterType ) {
+    int png_ftype = NO_FILTER_DEFINED;
+    if ( filterType != NULL ) {
+      string filter = string(filterType);
+      if ( filter.compare("PNG_FILTER_NONE") )
+        png_ftype = PNG_FILTER_NONE;
+      else if ( filter.compare("PNG_FILTER_SUB") )
+        png_ftype = PNG_FILTER_SUB;
+      else if ( filter.compare("PNG_FILTER_UP") )
+        png_ftype = PNG_FILTER_UP;
+      else if ( filter.compare("PNG_FILTER_AVG") )
+        png_ftype = PNG_FILTER_AVG;
+      else if ( filter.compare("PNG_FILTER_PAETH") )
+        png_ftype = PNG_FILTER_PAETH;
+      else if ( filter.compare("PNG_ALL_FILTERS") )
+        png_ftype = PNG_ALL_FILTERS;
+    }
+    return png_ftype;
+  }
+
+  static int getPNGFilterType() {
+    int filterType = PNGFilterTypeToInt( getenv( "PNG_FILTER_TYPE" ) );
+    int checkType = NO_FILTER_DEFINED;
+    if ( filterType == checkType ) {
+      filterType = PNG_NO_FILTERS;
+    }
+    return 0;
+  }
+
+#endif // HAVE_PNG
+
+
+
+
+  /**
+   * From tiff.h
+   */
+//  #define	    COMPRESSION_NONE		1	/* dump mode */
+//  #define	    COMPRESSION_CCITTRLE	2	/* CCITT modified Huffman RLE */
+//  #define	    COMPRESSION_CCITTFAX3	3	/* CCITT Group 3 fax encoding */
+//  #define     COMPRESSION_CCITT_T4        3       /* CCITT T.4 (TIFF 6 name) */
+//  #define	    COMPRESSION_CCITTFAX4	4	/* CCITT Group 4 fax encoding */
+//  #define     COMPRESSION_CCITT_T6        4       /* CCITT T.6 (TIFF 6 name) */
+//  #define	    COMPRESSION_LZW		5       /* Lempel-Ziv  & Welch */
+//  #define	    COMPRESSION_OJPEG		6	/* !6.0 JPEG */
+//  #define	    COMPRESSION_JPEG		7	/* %JPEG DCT compression */
+//  #define     COMPRESSION_T85			9	/* !TIFF/FX T.85 JBIG compression */
+//  #define     COMPRESSION_T43			10	/* !TIFF/FX T.43 colour by layered JBIG compression */
+//  #define	    COMPRESSION_NEXT		32766	/* NeXT 2-bit RLE */
+//  #define	    COMPRESSION_CCITTRLEW	32771	/* #1 w/ word alignment */
+//  #define	    COMPRESSION_PACKBITS	32773	/* Macintosh RLE */
+//  #define	    COMPRESSION_THUNDERSCAN	32809	/* ThunderScan RLE */
+//  /* codes 32895-32898 are reserved for ANSI IT8 TIFF/IT <dkelly@apago.com) */
+//  #define	    COMPRESSION_IT8CTPAD	32895   /* IT8 CT w/padding */
+//  #define	    COMPRESSION_IT8LW		32896   /* IT8 Linework RLE */
+//  #define	    COMPRESSION_IT8MP		32897   /* IT8 Monochrome picture */
+//  #define	    COMPRESSION_IT8BL		32898   /* IT8 Binary line art */
+//  /* compression codes 32908-32911 are reserved for Pixar */
+//  #define     COMPRESSION_PIXARFILM	32908   /* Pixar companded 10bit LZW */
+//  #define	    COMPRESSION_PIXARLOG	32909   /* Pixar companded 11bit ZIP */
+//  #define	    COMPRESSION_DEFLATE		32946	/* Deflate compression */
+//  #define     COMPRESSION_ADOBE_DEFLATE   8       /* Deflate compression,
+//                 as recognized by Adobe */
+//  /* compression code 32947 is reserved for Oceana Matrix <dev@oceana.com> */
+//  #define     COMPRESSION_DCS             32947   /* Kodak DCS encoding */
+//  #define	    COMPRESSION_JBIG		34661	/* ISO JBIG */
+//  #define     COMPRESSION_SGILOG		34676	/* SGI Log Luminance RLE */
+//  #define     COMPRESSION_SGILOG24	34677	/* SGI Log 24-bit packed */
+//  #define     COMPRESSION_JP2000          34712   /* Leadtools JPEG2000 */
+//  #define	    COMPRESSION_LZMA		34925	/* LZMA2 */
+  static int TIFFCompressionTypeToInt(const char *compressionType) {
+    int type = COMPRESSION_NONE;
+    if (compressionType != NULL) {
+      std::string compressor = std::string(compressionType);
+      if (compressor.compare("COMPRESSION_LZW"))
+        type = COMPRESSION_LZW;
+      else if (compressor.compare("COMPRESSION_DEFLATE"))
+        type = COMPRESSION_DEFLATE;
+    }
+    return type;
+  }
+
+  static int getTIFFCompressionType() {
+    return TIFFCompressionTypeToInt( getenv( "TIFF_COMPRESSION_TYPE" ));
   }
 
 };
