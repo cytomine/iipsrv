@@ -33,7 +33,7 @@ sysctl -w net.core.somaxconn=2048
 # Configure Nginx
 PORT=9000
 COUNTER=0
-while [  $COUNTER -lt $NB_IIP_PROCESS ]; do
+while [[ $COUNTER -lt $NB_IIP_PROCESS ]]; do
     sed -i "s/IIP_PROCESS/        	server 127.0.0.1:$(($PORT+$COUNTER)); \nIIP_PROCESS/g" /tmp/nginx.conf.sample
     let COUNTER=COUNTER+1
 done

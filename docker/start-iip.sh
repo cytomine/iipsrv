@@ -4,7 +4,7 @@ export LOGFILE=/tmp/iip.out
 
 PORT=9000
 COUNTER=0
-while [  $COUNTER -lt $NB_IIP_PROCESS ]; do
+while [[ $COUNTER -lt $NB_IIP_PROCESS ]]; do
     echo "spawn process"
     spawn-fcgi -f /opt/iipsrv/src/iipsrv.fcgi -a 127.0.0.1 -p $(($PORT+$COUNTER))
     let COUNTER=COUNTER+1
