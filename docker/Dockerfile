@@ -24,7 +24,7 @@ RUN apt-get -y update && \
       git \
       libjpeg8-dev \
       libmemcached-dev \
-      libopenjpeg-dev \
+      libopenjp2-7-dev \
       libssl-dev \
       libtiff5-dev \
       libpng-dev \
