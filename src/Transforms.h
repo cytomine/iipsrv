@@ -1,7 +1,7 @@
 /*
     Image Transforms
 
-    Copyright (C) 2004-2013 Ruven Pillay.
+    Copyright (C) 2004-2019 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,109 +25,169 @@
 #include <vector>
 #include "RawTile.h"
 
-/// Function to create normalized array
-/** @param in tile data to be adjusted
-    @param min : vector of minima
-    @param max : vector of maxima
-*/
-void filter_normalize( RawTile& in, std::vector<float>& max, std::vector<float>& min );
 
-/// Function to apply colormap to gray images
-///   based on the routine colormap.cpp in Imagin Raytracer by Olivier Ferrand
-///   http://www.imagin-raytracer.org
-/** @param in tile data to be converted
-    @param cmap color map to apply.
-*/
-void filter_cmap( RawTile& in, std::string cmap );
-
-/// Function to invert colormaps
-/** @param in tile data to be adjusted
-*/
-void filter_inv( RawTile& in );
+// Define round() function for older MSVC compilers
+#if defined _MSC_VER && _MSC_VER<1900
+inline double round(double r) { return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5); }
+#endif
 
 
-/// Hillshading function to simulate raking light images
-/** @param in tile input data containing normal vectors at each point
-    @param h_angle angle in the horizontal plane from  12 o'clock in degrees
-    @param v_angle angle in the vertical plane in degrees. 0 is flat, 90 pointing directly down.
-*/
-void filter_shade( RawTile& in, int h_angle, int v_angle );
+enum interpolation { NEAREST, BILINEAR, CUBIC, LANCZOS2, LANCZOS3 };
+enum cmap_type { HOT, COLD, JET, BLUE, GREEN, RED };
 
 
-/// Convert from CIELAB to sRGB colour space
-/** @param in tile data to be converted */
-void filter_LAB2sRGB( RawTile& in );
+/// Image Processing Transforms
+struct Transform {
+
+ private:
+
+  /// Private function to convert single pixel of CIELAB to sRGB
+  /** @param in input buffer
+      @param out output buffer
+  */
+  void LAB2sRGB( unsigned char *in, unsigned char *out );
 
 
-/// Function to apply a contrast adjustment
-/** @param in tile data to be adjusted
-    @param c contrast value
-*/
-void filter_contrast( RawTile& in, float c );
+ public:
+
+  /// Get description of processing engine
+  std::string getDescription(){ return "CPU processor"; };
 
 
-/// Function to clip data to b bit
-/** @param in tile data to be adjusted
- *  @param b number of bits
- */
-void filter_clip( RawTile& in, const unsigned int b );
+  /// Function to create normalized array
+  /** @param in tile data to be adjusted
+      @param min : vector of minima
+      @param max : vector of maxima
+  */
+  void normalize( RawTile& in, const std::vector<float>& max, const std::vector<float>& min );
 
 
-/// Apply a gamma correction
-/** @param in tile input data
-    @param g gamma
-*/
-void filter_gamma( RawTile& in, float g );
+  /// Function to apply colormap to gray images
+  /** @param in tile data to be converted
+      @param cmap color map to apply.
+  */
+  void cmap( RawTile& in, std::string cmap );
+
+  /// Function to invert colormaps
+  /** @param in tile data to be adjusted
+   */
+  void inv( RawTile& in );
 
 
-/// Resize image using nearest neighbour interpolation
-/** @param in tile input data
-    @param w target width
-    @param h target height
-*/
-void filter_interpolate_nearestneighbour( RawTile& in, unsigned int w, unsigned int h );
+  /// Hillshading function to simulate raking light images
+  /** @param in tile input data containing normal vectors at each point
+      @param h_angle angle in the horizontal plane from  12 o'clock in degrees
+      @param v_angle angle in the vertical plane in degrees. 0 is flat, 90 pointing directly down.
+  */
+  void shade( RawTile& in, int h_angle, int v_angle );
 
 
-/// Resize image using bilinear interpolation
-/** @param in tile input data
-    @param w target width
-    @param h target height
-*/
-void filter_interpolate_bilinear( RawTile& in, unsigned int w, unsigned int h );
+  /// Convert from CIELAB to sRGB colour space
+  /** @param in tile data to be converted */
+  void LAB2sRGB( RawTile& in );
 
 
-/// Rotate image - currently only by 90, 180 or 270 degrees, other values will do nothing
-/** @param in tile input data
-    @param angle angle of rotation - currently only rotations by 90, 180 and 270 degrees
-    are suported, for other values, no rotation will occur
-*/
-void filter_rotate( RawTile& in, float angle );
+  /// Function to apply a contrast adjustment
+  /** @param in tile data to be adjusted
+      @param c contrast value
+  */
+  void contrast( RawTile& in, float c );
 
 
-/// Convert image to grayscale
-/** @param in input image */
-void filter_greyscale( RawTile& in );
+  /// Clip data to b bit
+  /** @param in tile data to be adjusted
+   *  @param b number of bits
+   */
+  void clip( RawTile& in, const unsigned int b );
 
 
-/// Apply a color twist
-/** @param in input image
-    @param ctw 2D color twist matrix
-*/
-void filter_twist( RawTile& in, const std::vector< std::vector<float> >& ctw );
+  /// Apply a gamma correction
+  /** @param in tile input data
+      @param g gamma
+  */
+  void gamma( RawTile& in, float g );
 
 
-/// Extract bands
-/** @param in input image
-    @param bands number of bands
-*/
-void filter_flatten( RawTile& in, int bands );
+  /// Resize image using nearest neighbour interpolation
+  /** @param in tile input data
+      @param w target width
+      @param h target height
+  */
+  void interpolate_nearestneighbour( RawTile& in, unsigned int w, unsigned int h );
 
 
-///Flip image
-/** @param in input image
-    @param o orientation (0=horizontal,1=vertical)
-*/
-void filter_flip( RawTile& in, int o );
+  /// Resize image using bilinear interpolation
+  /** @param in tile input data
+      @param w target width
+      @param h target height
+  */
+  void interpolate_bilinear( RawTile& in, unsigned int w, unsigned int h );
 
+
+  /// Rotate image - currently only by 90, 180 or 270 degrees, other values will do nothing
+  /** @param in tile input data
+      @param angle angle of rotation - currently only rotations by 90, 180 and 270 degrees
+      are suported, for other values, no rotation will occur
+  */
+  void rotate( RawTile& in, float angle );
+
+
+  /// Convert image to grayscale
+  /** @param in input image */
+  void greyscale( RawTile& in );
+
+
+  /// Apply a color twist
+  /** @param in input image
+      @param ctw 2D color twist matrix
+  */
+  void twist( RawTile& in, const std::vector< std::vector<float> >& ctw );
+
+
+  /// Extract bands
+  /** @param in input image
+      @param bands number of bands
+  */
+  void flatten( RawTile& in, int bands );
+
+
+  /// Flip image
+  /** @param in input image
+      @param o orientation (0=horizontal,1=vertical)
+  */
+  void flip( RawTile& in, int o );
+
+
+  /// Calculate histogram of an image
+  /** @param in input image
+      @param max max image values for each channel
+      @param min min image values for each channel
+      @return vector containing histogram (single histogram for all channels)
+  */
+  std::vector<unsigned int> histogram( RawTile& in, const std::vector<float>& max, const std::vector<float>& min );
+
+
+  /// Calculate threshold for binary (bi-level) segmentation
+  /** @param histogram image histogram
+      @return threshold
+  */
+  unsigned char threshold( std::vector<unsigned int>& histogram );
+
+
+  /// Create binary (bi-level) image
+  /** @param in input image
+      @param threshold threshold for binary image segmentation
+  */
+  void binary( RawTile& in, unsigned char threshold );
+
+
+  /// Apply histogram equalization to an image
+  /** @param in input image
+      @param histogram image histogram
+  */
+  void equalize( RawTile& in, std::vector<unsigned int>& histogram );
+
+
+};
 
 #endif

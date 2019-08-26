@@ -95,7 +95,7 @@ public:
       @param rawtile tile containing the image to be compressed
       @param strip_height pixel height of the strip we want to compress
    */
-  void InitCompression( const RawTile& rawtile, unsigned int strip_height ) throw (std::string);
+  void InitCompression( const RawTile& rawtile, unsigned int strip_height );
 
 
   /// Compress a strip of image data
@@ -103,18 +103,18 @@ public:
       @param tile_height pixel height of the tile we are compressing
       @param o output_buffer // unused with PNG
    */
-  unsigned int CompressStrip( unsigned char* s, unsigned char* o, unsigned int tile_height ) throw (std::string);
+  unsigned int CompressStrip( unsigned char* s, unsigned char* o, unsigned int tile_height );
 
 
   /// Finish the strip based compression and free memory
   /** @param output output buffer
       @return size of output generated
    */
-  unsigned int Finish(unsigned char* output) throw (std::string);
+  unsigned int Finish(unsigned char* output);
 
   /// Compress an entire buffer of image data at once in one command
   /** @param t tile of image data */
-  int Compress( RawTile& t ) throw (std::string);
+  unsigned int Compress( RawTile& t );
 
   /// Add metadata to the JPEG header
   /** @param m metadata */

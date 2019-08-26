@@ -1,7 +1,7 @@
 /*
     IIP FCGI server module - Main loop.
 
-    Copyright (C) 2000-2017 Ruven Pillay
+    Copyright (C) 2000-2019 Ruven Pillay
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,8 +26,6 @@
 
 #include <ctime>
 #include <csignal>
-#include <iostream>
-#include <fstream>
 #include <string>
 #include <utility>
 #include <map>
@@ -43,6 +41,8 @@
 #include "Task.h"
 #include "Environment.h"
 #include "Writer.h"
+#include "Logger.h"
+
 
 #ifdef HAVE_MEMCACHED
 #ifdef WIN32
@@ -92,13 +92,36 @@ using namespace std;
    can have access to them
 */
 int loglevel;
-ofstream logfile;
+Logger logfile;
 unsigned long IIPcount;
 char *tz = NULL;
 
 
 
-/* Handle a signal - print out some stats and exit
+// Create pointers to our cache structures for use in our signal handler function
+imageCacheMapType* ic = NULL;
+Cache* tc = NULL;
+
+
+void IIPReloadCache( int signal )
+{
+  if( ic ) ic->clear();
+  if( tc ) tc->clear();
+
+  if( loglevel >= 1 ){
+    // No strsignal on Windows
+#ifdef WIN32
+    int sigstr = signal;
+#else
+    char *sigstr = strsignal( signal );
+#endif
+    logfile << "Caught " << sigstr << " signal. Emptying internal caches" << endl << endl;
+  }
+}
+
+
+
+/* Handle a termination signal - print out some stats and exit
  */
 void IIPSignalHandler( int signal )
 {
@@ -112,6 +135,9 @@ void IIPSignalHandler( int signal )
     time_t current_time = time( NULL );
     char *date = ctime( &current_time );
 
+    // Remove trailing newline
+    date[strcspn(date, "\n")] = '\0';
+
     // No strsignal on Windows
 #ifdef WIN32
     int sigstr = signal;
@@ -121,12 +147,12 @@ void IIPSignalHandler( int signal )
 
     logfile << endl << "Caught " << sigstr << " signal. "
 	    << "Terminating after " << IIPcount << " accesses" << endl
-	    << date
+	    << date << endl
 	    << "<----------------------------------->" << endl << endl;
     logfile.close();
   }
 
-  exit( 1 );
+  exit( 0 );
 }
 
 
@@ -159,8 +185,8 @@ int main( int argc, char *argv[] )
 
     // Check for the requested log file path
     string lf = Environment::getLogFile();
+    logfile.open( lf );
 
-    logfile.open( lf.c_str(), ios::app );
     // If we cannot open this, set the loglevel to 0
     if( !logfile ){
       loglevel = 0;
@@ -238,6 +264,7 @@ int main( int argc, char *argv[] )
   // Set our maximum image cache size
   float max_image_cache_size = Environment::getMaxImageCacheSize();
   imageCacheMapType imageCache;
+  ic = &imageCache;
 
 
   // Get our image pattern variable
@@ -305,6 +332,16 @@ int main( int argc, char *argv[] )
 #endif
 
 
+  // Create our image processing engine
+  Transform* processor = new Transform();
+
+
+#ifdef HAVE_KAKADU
+  // Get the Kakadu readmode
+  unsigned int kdu_readmode = Environment::getKduReadMode();
+#endif
+
+
   // Print out some information
   if( loglevel >= 1 ){
     logfile << "Setting maximum image cache size to " << max_image_cache_size << "MB" << endl;
@@ -324,9 +361,11 @@ int main( int argc, char *argv[] )
     logfile << "Setting ICC profile embedding to " << (embed_icc? "true" : "false") << endl;
 #ifdef HAVE_KAKADU
     logfile << "Setting up JPEG2000 support via Kakadu SDK" << endl;
+    logfile << "Setting Kakadu read-mode to " << ((kdu_readmode==2) ? "resilient" : (kdu_readmode==1) ? "fussy" : "fast") << endl;
 #elif defined(HAVE_OPENJPEG)
     logfile << "Setting up JPEG2000 support via OpenJPEG" << endl;
 #endif
+    logfile << "Setting image processing engine to " << processor->getDescription() << endl;
 #ifdef _OPENMP
     int num_threads = 0;
 #pragma omp parallel
@@ -467,7 +506,7 @@ int main( int argc, char *argv[] )
 
 #ifndef WIN32
   signal( SIGUSR1, IIPSignalHandler );
-  signal( SIGHUP, IIPSignalHandler );
+  signal( SIGHUP, IIPReloadCache );
 #endif
 
   signal( SIGTERM, IIPSignalHandler );
@@ -488,6 +527,7 @@ int main( int argc, char *argv[] )
 
   // Create our tile cache
   Cache tileCache( max_image_cache_size );
+  tc = &tileCache;
   Task* task = NULL;
 
 
@@ -563,6 +603,10 @@ int main( int argc, char *argv[] )
       session.out = &writer;
       session.watermark = &watermark;
       session.headers.clear();
+      session.processor = processor;
+#ifdef HAVE_KAKADU
+      session.codecOptions["KAKADU_READMODE"] = kdu_readmode;
+#endif
 
       char* header = NULL;
       string request_string;

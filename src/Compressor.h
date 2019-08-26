@@ -1,6 +1,6 @@
 /*  Generic compressor class - extended by JPEG and PNG Compressor classes
 
-    Copyright (C) 2017 Ruven Pillay
+    Copyright (C) 2017-2018 Ruven Pillay
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -70,12 +70,12 @@ class Compressor {
 
   /// Return the image header size
   /** @return header size in bytes */
-  virtual unsigned int getHeaderSize() { return 0; }; 
+  virtual unsigned int getHeaderSize() { return 0; };
 
 
   /// Return a pointer to the image header itself
   /** @return binary header blob */
-  virtual unsigned char* getHeader() { return NULL; }; 
+  virtual unsigned char* getHeader() { return NULL; };
 
 
   /// Initialise strip based compression
@@ -91,7 +91,6 @@ class Compressor {
   /// Compress a strip of image data
   /** @param s source image data
       @param o output buffer
-      @param olen output buffer length
       @param tile_height pixel height of the tile we are compressing
       @return number of bytes used for strip
   */
@@ -109,7 +108,7 @@ class Compressor {
   /** @param t tile of image data
       @return number of bytes used
    */
-  virtual int Compress( RawTile& t ) { return 0; };
+  virtual unsigned int Compress( RawTile& t ) { return 0; };
 
 
   /// Add metadata to the image header

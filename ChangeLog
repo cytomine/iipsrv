@@ -1,3 +1,112 @@
+24/03/2016: Version 1.1 Released
+
+
+20/06/2019:
+	- Documentation updates for doxygen
+
+
+13/06/2019:
+	- Re-factored to display Logger output type availability at configure stage.
+	- SIGHUP signal now empties internal caches rather than terminates iipsrv.
+
+
+12/06/2019:
+	- Fix to avoid unnecessary conversion to binary when image already binary.
+	- Update to OpenJPEG code to fix problem when re-using codec structures
+	  more than once in the same request (for example when calculating histogram).
+
+
+11/06/2019:
+	- Fixes to eliminate Coverity static scan analysis warnings.
+	- New rewritten OpenJPEG module: now faster, cleaner and correctly
+	  handles ICC profiles, bilevel and 16 bit images. Now activated by
+	  default if OpenJPEG library found and Kakadu not requested.
+
+
+13/05/2019:
+	- Update to configure.ac to change AC_CHECK_FILE for Kakadu sources to
+	  AS_IF to properly enable cross builds. Patched thanks to Helmut Grohne.
+
+
+23/02/2019:
+	- Added test for resolutions that may be untiled within a tiled TIFF.
+
+
+01/04/2019:
+	- Added Logger class, which replaces the previous raw ofstream. The class
+	  includes functionality to output log to syslog on UNIX-type systems.
+	  Pass "syslog" to the LOGFILE startup environment variable to use syslog.
+	- Minor code changes for Windows MSVC compilation
+
+
+19/03/2019:
+	- Small increase in temporary buffer size in OBJ.cc colorspace() function
+	  to avoid truncation warning in GCC 8.2
+
+
+13/03/2019:
+	- Fixed bug in vertical mirroring transformation
+	- Minor change to IIIF square parsing to allow correct logging
+
+
+25/02/2019:
+	- Added check for overly large XMP sizes in JPEGCompressor.cc
+
+
+20/02/2019:
+	- Fixed rounding error in getViewWidth() / getViewHeight() which was causing
+	  certain IIIF requests to be handled by CVT rather than JTL. See:
+          https://github.com/ruven/iipsrv/issues/148#issuecomment-453125005
+	- Adding missing default initialization for kdu_readmode variable.
+
+
+15/02/2019:
+	- Changed exit code after signal handling for clean shutdown when iipsrv used
+	  with systemd.
+
+
+15/01/2019:
+	- Added "bitonal" to list of available qualities in the IIIF info.json file and
+	  replaced use of pow with a faster bitwise shift.
+
+
+09/01/2019:
+	- Added ability to do contrast stretching and histogram equalization via extensions
+	  to the CNT command (CNT=EQ and CNT=ST respectively). Also added new IIP command to
+	  enable color space conversion to greyscale or binary (aka bi-level or bitonal) via
+	  the COL command (COL=grey or COL=binary). Image histogram is calculated once when
+	  needed and saved in the image cache.
+
+
+21/12/2018:
+	- Added fix for rounding error in CVT.cc to avoid garbled last lines in region
+	  requests for very large images.
+
+
+30/11/2018:
+	- Added maxWidth and maxHeight IIIF API 2.1 directives to info.json.
+
+
+13/11/2018:
+	- Converted RawTile dataLength variable to unsigned to improve overflow
+	  avoidance as per https://github.com/ruven/iipsrv/pull/156
+	- Added Visual Studio version check to round() implementation in
+	  windows/Time.cc as now supported in recent versions.
+
+
+12/11/2018:
+	- Refactored image procesing code. Transform functions are now encapsulated
+	  within a struct to allow new processing engines to be more easily added.
+	- Cleanup to Environment.h to remove redundant comparison as readmode is
+	  declared unsigned and can never be less than 0.
+
+
+05/11/2018:
+	- Added codecOptions list to Session class for setting options for the encoders
+	  or decoders. Added KDU_READMODE environment variable for setting the Kakadu
+	  read-mode in KakaduImage.cc. Options are 0 (fast), 1 (fussy) or 2 (resilient).
+
+
 23/07/2018:
 	- Fixed incorrect big endian TIFF file signature.
 

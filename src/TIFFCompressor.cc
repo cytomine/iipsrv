@@ -116,7 +116,7 @@ extern "C" {
   }
 }
 
-void TIFFCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_height ) throw (std::string) {
+void TIFFCompressor::InitCompression( const RawTile &rawtile, unsigned int strip_height ) {
   dest = &dest_mgr;
 
   width = rawtile.width;
@@ -152,7 +152,7 @@ void TIFFCompressor::InitCompression( const RawTile &rawtile, unsigned int strip
 }
 
 unsigned int TIFFCompressor::CompressStrip( unsigned char *s, unsigned char *o,
-                                            unsigned int tile_height ) throw (std::string) {
+                                            unsigned int tile_height ) {
   int row_stride = width * channels * bpc / 8;
   TIFFWriteEncodedStrip(dest->tiff, dest->strip++, s, tile_height * row_stride);
 
@@ -162,7 +162,7 @@ unsigned int TIFFCompressor::CompressStrip( unsigned char *s, unsigned char *o,
   return datacount;
 }
 
-unsigned int TIFFCompressor::Finish( unsigned char *output ) throw (std::string) {
+unsigned int TIFFCompressor::Finish( unsigned char *output ) {
   TIFFClose(dest->tiff);
 
   unsigned int datacount = dest->flen;

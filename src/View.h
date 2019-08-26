@@ -1,7 +1,7 @@
 /*
     Image View and Transform Parameters
 
-    Copyright (C) 2003-2017 Ruven Pillay.
+    Copyright (C) 2003-2019 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -28,11 +28,6 @@
 
 #include "Transforms.h"
 
-//include round function for MSVC compiler
-#if _MSC_VER
-#include "../windows/Time.h"
-#endif
-
 
 
 
@@ -54,8 +49,6 @@ class View{
   unsigned int max_size;                      /// Maximum viewport dimension
   unsigned int requested_width;               /// Width requested by WID command
   unsigned int requested_height;              /// Height requested by HEI command
-  float contrast;                             /// Contrast adjustment requested by CNT command
-  float gamma;                                /// Gamma adjustment requested by GAM command
   float rotation;                             /// Rotation requested by ROT command
 
 
@@ -86,6 +79,9 @@ class View{
   bool embed_icc;                             /// Indicate whether we should embed ICC profiles
   CompressionType output_format;              /// Requested output format
   unsigned int output_bpc;                    /// Requested output bit per channels
+  float contrast;                             /// Contrast adjustment requested by CNT command
+  float gamma;                                /// Gamma adjustment requested by GAM command
+  bool equalization;                          /// Whether to perform histogram equalization
 
 
   /// Constructor
@@ -107,13 +103,9 @@ class View{
     colourspace = NONE;
     embed_icc = true;
     output_format = JPEG;
+    equalization = false;
     output_bpc = 8;
   };
-
-
-  /// Set the contrast adjustment
-  /** @param c contrast (where 1.0 is no adjustment) */
-  void setContrast( float c ){ contrast = c; };
 
 
   /// Set the maximum view port dimension
@@ -143,7 +135,7 @@ class View{
 
 
   /// Get the embed_icc flag - disable in case of certain types of processing
-  /** @param embed embed icc profile flag
+  /** @return whether ICC profile should be embedded
    */
   bool embedICC(){
     // Disable if colour-mapping, twist, hill-shading or greyscale conversion applied
@@ -229,10 +221,6 @@ class View{
   /// Return the number of layers to decode
   int getLayers();
 
-  /// Return the contrast adjustment
-  /* @return requested contrast */
-  float getContrast(){ return contrast; };
-
   /// Return the image width at our requested resolution
   /* @return image width */
   unsigned int getImageWidth(){ return width; };
@@ -261,14 +249,6 @@ class View{
   /* @return boolean indicating whether viewport specified */
   bool viewPortSet();
 
-  /// Set gamma
-  /** @param g gamma value */
-  void setGamma( float g ){ gamma = g; };
-
-  /// Get gamma
-  /* @return requested gamma */
-  float getGamma(){ return gamma; };
-
   /// Set rotation
   /** @param r angle of rotation in degrees */
   void setRotation( float r ){ rotation = r; };
@@ -282,6 +262,12 @@ class View{
     if( contrast != 1.0 || gamma != 1.0 || cmapped || shaded || inverted || ctw.size() ){
       return true;
     }
+    else return false;
+  }
+
+  /// Whether we require a histogram
+  bool requireHistogram(){
+    if( equalization || colourspace==BINARY || contrast==-1 ) return true;
     else return false;
   }
 

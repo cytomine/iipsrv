@@ -1,7 +1,7 @@
 /*
     IIP JTL Command Handler Class Member Function
 
-    Copyright (C) 2006-2016 Ruven Pillay.
+    Copyright (C) 2006-2019 Ruven Pillay.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ using namespace std;
 void JTL::send( Session* session, int resolution, int tile ){
 
   Timer function_timer;
-  
+
   if( session->loglevel >= 3 ) (*session->logfile) << "JTL handler reached" << endl;
 
 
@@ -71,6 +71,34 @@ void JTL::send( Session* session, int resolution, int tile ){
 
   TileManager tilemanager( session->tileCache, *session->image, session->watermark, session->jpeg, session->logfile, session->loglevel );
 
+
+  // First calculate histogram if we have asked for either binarization,
+  //  histogram equalization or contrast stretching
+  if( session->view->requireHistogram() && (*session->image)->histogram.size()==0 ){
+
+    if( session->loglevel >= 4 ) function_timer.start();
+
+    // Retrieve an uncompressed version of our smallest tile
+    // which should be sufficient for calculating the histogram
+    RawTile thumbnail = tilemanager.getTile( 0, 0, 0, session->view->yangle, session->view->getLayers(), UNCOMPRESSED );
+
+    // Calculate histogram
+    (*session->image)->histogram =
+      session->processor->histogram( thumbnail, (*session->image)->max, (*session->image)->min );
+
+    if( session->loglevel >= 4 ){
+      *(session->logfile) << "JTL :: Calculated histogram in "
+			  << function_timer.getTime() << " microseconds" << endl;
+    }
+
+    // Insert the histogram into our image cache
+    const string key = (*session->image)->getImagePath();
+    imageCacheMapType::iterator i = session->imageCache->find(key);
+    if( i != session->imageCache->end() ) (i->second).histogram = (*session->image)->histogram;
+  }
+
+
+
   CompressionType ct;
 
   // Request uncompressed tile if raw pixel data is required for processing
@@ -78,7 +106,7 @@ void JTL::send( Session* session, int resolution, int tile ){
       || (*session->image)->getNumChannels() == 2 || (*session->image)->getNumChannels() > 3
       || ( session->view->colourspace==GREYSCALE && (*session->image)->getNumChannels()==3 &&
 	   (*session->image)->getNumBitsPerPixel()==8 )
-      || session->view->floatProcessing()
+      || session->view->floatProcessing() || session->view->equalization
       || session->view->getRotation() != 0.0 || session->view->flip != 0
       ) ct = UNCOMPRESSED;
   else ct = JPEG;
@@ -115,7 +143,7 @@ void JTL::send( Session* session, int resolution, int tile ){
       *(session->logfile) << "JTL :: Converting from CIELAB->sRGB";
       function_timer.start();
     }
-    filter_LAB2sRGB( rawtile );
+    session->processor->LAB2sRGB( rawtile );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
     }
@@ -125,12 +153,46 @@ void JTL::send( Session* session, int resolution, int tile ){
   // Only use our float pipeline if necessary
   if( rawtile.bpc > 8 || session->view->floatProcessing() ){
 
+    // Make a copy of our max and min as we may change these
+    vector <float> min = (*session->image)->min;
+    vector <float> max = (*session->image)->max;
+
+    // Change our image max and min if we have asked for a contrast stretch
+    if( session->view->contrast == -1 ){
+
+      // Find first non-zero bin in histogram
+      unsigned int n0 = 0;
+      while( (*session->image)->histogram[n0] == 0 ) ++n0;
+
+      // Find highest bin
+      unsigned int n1 = (*session->image)->histogram.size() - 1;
+      while( (*session->image)->histogram[n1] == 0 ) --n1;
+
+      // Histogram has been calculated using 8 bits, so scale up to native bit depth
+      if( rawtile.bpc > 8 && rawtile.sampleType == FIXEDPOINT ){
+	n0 = n0 << (rawtile.bpc-8);
+	n1 = n1 << (rawtile.bpc-8);
+      }
+
+      min.assign( rawtile.bpc, (float)n0 );
+      max.assign( rawtile.bpc, (float)n1 );
+
+      // Reset our contrast
+      session->view->contrast = 1.0;
+
+      if( session->loglevel >= 5 ){
+	*(session->logfile) << "JTL :: Applying contrast stretch for image range of "
+			    << n0 << " - " << n1 << endl;
+      }
+    }
+
+
     // Apply normalization and float conversion
     if( session->loglevel >= 4 ){
       *(session->logfile) << "JTL :: Normalizing and converting to float";
       function_timer.start();
     }
-    filter_normalize( rawtile, (*session->image)->max, (*session->image)->min );
+    session->processor->normalize( rawtile, max, min );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
     }
@@ -142,7 +204,7 @@ void JTL::send( Session* session, int resolution, int tile ){
 	*(session->logfile) << "JTL :: Applying hill-shading";
 	function_timer.start();
       }
-      filter_shade( rawtile, session->view->shade[0], session->view->shade[1] );
+      session->processor->shade( rawtile, session->view->shade[0], session->view->shade[1] );
       if( session->loglevel >= 4 ){
 	*(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
       }
@@ -155,7 +217,7 @@ void JTL::send( Session* session, int resolution, int tile ){
 	*(session->logfile) << "JTL :: Applying color twist";
 	function_timer.start();
       }
-      filter_twist( rawtile, session->view->ctw );
+      session->processor->twist( rawtile, session->view->ctw );
       if( session->loglevel >= 4 ){
 	*(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
       }
@@ -163,13 +225,13 @@ void JTL::send( Session* session, int resolution, int tile ){
 
 
     // Apply any gamma correction
-    if( session->view->getGamma() != 1.0 ){
-      float gamma = session->view->getGamma();
+    if( session->view->gamma != 1.0 ){
+      float gamma = session->view->gamma;
       if( session->loglevel >= 4 ){
 	*(session->logfile) << "JTL :: Applying gamma of " << gamma;
 	function_timer.start();
       }
-      filter_gamma( rawtile, gamma);
+      session->processor->gamma( rawtile, gamma);
       if( session->loglevel >= 4 ){
 	*(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
       }
@@ -182,7 +244,7 @@ void JTL::send( Session* session, int resolution, int tile ){
 	*(session->logfile) << "JTL :: Applying inversion";
 	function_timer.start();
       }
-      filter_inv( rawtile );
+      session->processor->inv( rawtile );
       if( session->loglevel >= 4 ){
 	*(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
       }
@@ -195,7 +257,7 @@ void JTL::send( Session* session, int resolution, int tile ){
 	*(session->logfile) << "JTL :: Applying color map";
 	function_timer.start();
       }
-      filter_cmap( rawtile, session->view->cmap );
+      session->processor->cmap( rawtile, session->view->cmap );
       if( session->loglevel >= 4 ){
 	*(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
       }
@@ -203,12 +265,12 @@ void JTL::send( Session* session, int resolution, int tile ){
 
 
     // Apply any contrast adjustments
-    float contrast = session->view->getContrast();
+    float contrast = session->view->contrast;
     if( session->loglevel >= 4 ){
       *(session->logfile) << "JTL :: Applying contrast of " << contrast;
       function_timer.start();
     }
-    filter_contrast( rawtile, contrast );
+    session->processor->contrast( rawtile, contrast );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
     }
@@ -218,7 +280,7 @@ void JTL::send( Session* session, int resolution, int tile ){
     if (session->loglevel >= 4) {
       *(session->logfile) << "JTL :: Converting to " << b << "bit";
     }
-    filter_clip( rawtile, b );
+    session->processor->clip( rawtile, b );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
     }
@@ -233,7 +295,7 @@ void JTL::send( Session* session, int resolution, int tile ){
       *(session->logfile) << "JTL :: Flattening channels to " << bands;
       function_timer.start();
     }
-    filter_flatten( rawtile, bands );
+    session->processor->flatten( rawtile, bands );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
     }
@@ -246,9 +308,35 @@ void JTL::send( Session* session, int resolution, int tile ){
       *(session->logfile) << "JTL :: Converting to greyscale";
       function_timer.start();
     }
-    filter_greyscale( rawtile );
+    session->processor->greyscale( rawtile );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
+    }
+  }
+
+
+  // Convert to binary (bi-level) if requested
+  if( (*session->image)->getColourSpace() != BINARY && session->view->colourspace == BINARY ){
+    if( session->loglevel >= 4 ){
+      *(session->logfile) << "JTL :: Converting to binary with threshold ";
+      function_timer.start();
+    }
+    unsigned int threshold = session->processor->threshold( (*session->image)->histogram );
+    session->processor->binary( rawtile, threshold );
+    if( session->loglevel >= 4 ){
+      *(session->logfile) << threshold << " in " << function_timer.getTime() << " microseconds" << endl;
+    }
+  }
+
+
+  // Apply histogram equalization
+  if( session->view->equalization ){
+    if( session->loglevel >= 4 ) function_timer.start();
+    // Perform histogram equalization
+    session->processor->equalize( rawtile, (*session->image)->histogram );
+    if( session->loglevel >= 4 ){
+      *(session->logfile) << "JTL :: Applying histogram equalization in "
+                          << function_timer.getTime() << " microseconds" << endl;
     }
   }
 
@@ -260,7 +348,7 @@ void JTL::send( Session* session, int resolution, int tile ){
       flip_timer.start();
     }
 
-    filter_flip( rawtile, session->view->flip  );
+    session->processor->flip( rawtile, session->view->flip  );
 
     if( session->loglevel >= 5 ){
       *(session->logfile) << "JTL :: Flipping image ";
@@ -278,7 +366,7 @@ void JTL::send( Session* session, int resolution, int tile ){
       *(session->logfile) << "JTL :: Rotating image by " << rotation << " degrees";
       function_timer.start();
     }
-    filter_rotate( rawtile, rotation );
+    session->processor->rotate( rawtile, rotation );
     if( session->loglevel >= 4 ){
       *(session->logfile) << " in " << function_timer.getTime() << " microseconds" << endl;
     }

@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT(iipsrv,1.1,ruven@users.sourceforge.net)
+AC_INIT(iipsrv,1.5.0)
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
 
@@ -29,6 +29,7 @@ LT_INIT
 AC_CHECK_HEADERS(glob.h)
 AC_CHECK_HEADERS(time.h)
 AC_CHECK_HEADERS(sys/time.h)
+AC_CHECK_HEADERS(syslog.h, [LOGGING="file, syslog"], [LOGGING="file"])
 AC_FUNC_MALLOC
 AC_CHECK_LIB(m, log2, AC_DEFINE(HAVE_LOG2))
 AC_CHECK_FUNCS([setenv])
@@ -251,7 +252,7 @@ fi
 OPENJPEG=false
 
 AC_ARG_ENABLE(openjpeg,
-    [  --enable-openjpeg       enable OpenJPEG (disabled by default)] )
+    [  --disable-openjpeg      disable OpenJPEG] )
 
 AC_ARG_WITH( openjpeg,
    [  --with-openjpeg=DIR           location of OpenJPEG source files],
@@ -272,21 +273,19 @@ fi
 
 
 # Only check for OpenJPEG if Kakadu has not been enabled
-if test "x${KAKADU}" = xtrue; then
+if [test "x${KAKADU}" = xtrue]; then
 	AM_CONDITIONAL([ENABLE_OPENJPEG], [false])
 else
 
-	if test -n "$openjpeg_path"; then
-		enable_openjpeg="yes";
-	fi
-
-	if test "$enable_openjpeg" = "yes"; then
-		AC_MSG_RESULT([configure: Enabling OpenJPEG])
+	if test "x$enable_openjpeg" == "xno"; then
+		AC_MSG_RESULT([disabling OpenJPEG support])
+		AM_CONDITIONAL([ENABLE_OPENJPEG], [false])
+	else
 
 		if test -n "$openjpeg_path"; then
 		    AC_CHECK_FILE($openjpeg_path/src/lib/openjp2/openjpeg.h,
-		        AC_MSG_RESULT([configure: Using specified OpenJPEG sources. Will compile JPEG2000 support]); OPENJPEG=true,
-		        AC_MSG_RESULT([configure: No OpenJPEG JPEG2000 Sources Found])
+		        AC_MSG_RESULT([configure: Using specified OpenJPEG sources]); OPENJPEG=true,
+		        AC_MSG_RESULT([configure: No OpenJPEG sources found])
 		    )
 		    if test "x$OPENJPEG" = xtrue; then
 		        INCLUDES="$INCLUDES -I$openjpeg_path/src/lib/openjp2/"
@@ -295,7 +294,6 @@ else
 		else
 		    PKG_CHECK_MODULES([OPENJPEG], [libopenjp2], [OPENJPEG=true], [OPENJPEG=false])
 		    if test "x$OPENJPEG" = xtrue; then
-			AC_MSG_RESULT([configure: OpenJPEG installed in system. Will compile JPEG2000 support])
 		        INCLUDES="$INCLUDES $OPENJPEG_CFLAGS"
 		        LIBS="$LIBS $OPENJPEG_LIBS"
 		    else
@@ -315,8 +313,6 @@ else
 		    AM_CONDITIONAL([ENABLE_OPENJPEG], [false])
 		fi
 
-	else
-		AM_CONDITIONAL([ENABLE_OPENJPEG], [false])
 	fi
 fi
 
@@ -434,11 +430,12 @@ AC_OUTPUT
 AC_MSG_RESULT([
 Options Enabled:
 ---------------
- Memcached :  ${MEMCACHED}
- JPEG2000  :  ${JPEG2000_CODEC}
- OpenMP    :  ${OPENMP}
- PNG       :  ${PNG}
- OpenSlide :  ${OPENSLIDE}
+ Memcached  :  ${MEMCACHED}
+ JPEG2000   :  ${JPEG2000_CODEC}
+ OpenMP     :  ${OPENMP}
+ PNG        :  ${PNG}
+ OpenSlide  :  ${OPENSLIDE}
+ Loggers    :  ${LOGGING}
 ])
 
 # LitleCMS:			${LCMS}
