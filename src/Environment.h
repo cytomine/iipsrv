@@ -49,6 +49,7 @@
 
 
 #include <string>
+#include <zlib.h>
 
 
 /// Class to obtain environment variables
